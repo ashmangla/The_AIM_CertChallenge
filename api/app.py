@@ -12,14 +12,24 @@ from typing import Optional
 # Initialize FastAPI application with a title
 app = FastAPI(title="OpenAI Chat API")
 
+# Get allowed origins from environment variable or use defaults
+ALLOWED_ORIGINS = os.getenv(
+    "ALLOWED_ORIGINS",
+    "http://localhost:3000,https://your-vercel-app.vercel.app"  # Replace with your actual Vercel URL
+).split(",")
+
 # Configure CORS (Cross-Origin Resource Sharing) middleware
-# This allows the API to be accessed from different domains/origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows requests from any origin
-    allow_credentials=True,  # Allows cookies to be included in requests
-    allow_methods=["*"],  # Allows all HTTP methods (GET, POST, etc.)
-    allow_headers=["*"],  # Allows all headers in requests
+    allow_origins=[
+        "https://the-ai-engineer-challenge-two.vercel.app",
+        "http://localhost:3000"
+    ],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["*"],
+    expose_headers=["Content-Type", "X-Requested-With"],
+    max_age=3600,
 )
 
 # Define the data model for chat requests using Pydantic
