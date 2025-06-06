@@ -9,6 +9,7 @@ export default function Chat() {
   const [input, setInput] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -19,6 +20,23 @@ export default function Chat() {
     scrollToBottom();
   }, [messages]);
 
+  // Add health check on component mount
+  useEffect(() => {
+    const checkHealth = async () => {
+      try {
+        const response = await fetch(`${API_URL}/api/health`);
+        if (!response.ok) {
+          console.error('Health check failed:', response.status, response.statusText);
+          setError('API is not responding. Please try again later.');
+        }
+      } catch (err) {
+        console.error('Health check error:', err);
+        setError('Cannot connect to API. Please check your connection.');
+      }
+    };
+    checkHealth();
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || !apiKey.trim()) return;
@@ -27,8 +45,10 @@ export default function Chat() {
     setInput('');
     setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
     setIsLoading(true);
+    setError(null);
 
     try {
+      console.log('Sending request to:', `${API_URL}/api/chat`);
       const response = await fetch(`${API_URL}/api/chat`, {
         method: 'POST',
         headers: {
@@ -41,7 +61,11 @@ export default function Chat() {
         }),
       });
 
-      if (!response.ok) throw new Error('Network response was not ok');
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('API Error:', response.status, errorText);
+        throw new Error(`API Error: ${response.status} ${errorText}`);
+      }
 
       const reader = response.body?.getReader();
       if (!reader) throw new Error('No reader available');
@@ -66,6 +90,8 @@ export default function Chat() {
       }
     } catch (error) {
       console.error('Error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      setError(errorMessage);
       setMessages(prev => [...prev, { role: 'assistant', content: 'Sorry, there was an error processing your request.' }]);
     } finally {
       setIsLoading(false);
@@ -84,6 +110,12 @@ export default function Chat() {
             ← Back to Home
           </Link>
         </div>
+
+        {error && (
+          <div className="mb-4 p-3 bg-red-100 border border-red-200 rounded-lg text-red-700">
+            {error}
+          </div>
+        )}
 
         <div className="mb-6">
           <input
