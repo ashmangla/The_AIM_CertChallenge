@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
+import { API_URL } from '../config';
 
 export default function Chat() {
   const [messages, setMessages] = useState<Array<{ role: string; content: string }>>([]);
@@ -28,7 +29,7 @@ export default function Chat() {
     setIsLoading(true);
 
     try {
-      const response = await fetch('http://localhost:8000/api/chat', {
+      const response = await fetch(`${API_URL}/api/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
