@@ -1,4 +1,4 @@
-// File: /Users/ashimamangla/AI-challenge/The-AI-Engineer-Challenge/frontend/app/layout.tsx
+// File: /Users/ashimamangla/AI_Makerspace/code/The-AI-Engineer-Challenge/frontend/app/layout.tsx
 import * as entry from '../../../app/layout.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 

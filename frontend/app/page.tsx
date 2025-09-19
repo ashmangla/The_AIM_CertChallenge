@@ -50,7 +50,7 @@ export default function Home() {
             href="/chat"
             className="block w-full p-4 text-center bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-lg font-bold shadow-md hover:from-blue-600 hover:to-purple-600 transition-all duration-150"
           >
-            Start Chatting
+            Chat with PDF (RAG)
           </Link>
           
           <Link

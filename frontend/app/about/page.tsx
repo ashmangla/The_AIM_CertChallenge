@@ -17,27 +17,42 @@ export default function About() {
         </div>
 
         <div className="prose prose-blue max-w-none">
-          <h2 className="text-2xl font-semibold text-gray-800 mb-4">AI Chat Interface</h2>
+          <h2 className="text-2xl font-semibold text-gray-800 mb-4">RAG-Enabled PDF Chat</h2>
           
           <p className="text-gray-600 mb-4">
-            This application provides a modern interface for interacting with OpenAI's powerful language models.
-            Built with Next.js and FastAPI, it offers a seamless experience for AI-powered conversations.
+            This application enables you to upload PDF documents and have intelligent conversations about their content.
+            Using Retrieval-Augmented Generation (RAG), the AI can answer questions based specifically on the information 
+            contained in your uploaded documents.
           </p>
+
+          <h3 className="text-xl font-semibold text-gray-800 mb-3">How it Works</h3>
+          <ol className="list-decimal list-inside text-gray-600 mb-4">
+            <li>Upload a PDF document using the file upload interface</li>
+            <li>The system extracts and chunks the text content</li>
+            <li>Text chunks are converted to embeddings and stored in a vector database</li>
+            <li>When you ask questions, relevant chunks are retrieved</li>
+            <li>The AI answers based only on the retrieved document content</li>
+          </ol>
 
           <h3 className="text-xl font-semibold text-gray-800 mb-3">Features</h3>
           <ul className="list-disc list-inside text-gray-600 mb-4">
+            <li>PDF document upload and processing</li>
+            <li>Intelligent text chunking and embedding</li>
+            <li>Vector similarity search for relevant content</li>
+            <li>Context-aware AI responses</li>
             <li>Real-time streaming responses</li>
             <li>Modern, responsive design</li>
             <li>Secure API key handling</li>
-            <li>Health monitoring</li>
-            <li>Easy-to-use interface</li>
           </ul>
 
           <h3 className="text-xl font-semibold text-gray-800 mb-3">Technology Stack</h3>
           <ul className="list-disc list-inside text-gray-600 mb-4">
             <li>Frontend: Next.js, React, TypeScript, Tailwind CSS</li>
             <li>Backend: FastAPI, Python</li>
-            <li>AI: OpenAI API</li>
+            <li>RAG: aimakerspace library with OpenAI embeddings</li>
+            <li>PDF Processing: PyPDF2</li>
+            <li>Vector Search: Numpy-based cosine similarity</li>
+            <li>AI: OpenAI API (GPT-4o-mini)</li>
           </ul>
 
           <div className="mt-8 text-center">
@@ -45,7 +60,7 @@ export default function About() {
               href="/chat"
               className="inline-block px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-lg font-bold shadow-md hover:from-blue-600 hover:to-purple-600 focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all duration-150"
             >
-              Start Chatting
+              Try RAG Chat
             </Link>
           </div>
         </div>

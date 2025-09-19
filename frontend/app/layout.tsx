@@ -2,8 +2,8 @@ import './globals.css';
 import { ReactNode } from 'react';
 
 export const metadata = {
-  title: 'AI Chat Interface',
-  description: 'A modern AI chat interface powered by FastAPI and OpenAI',
+  title: 'RAG Chat with PDF',
+  description: 'A RAG-enabled chat interface that lets you upload PDFs and ask questions about them',
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
