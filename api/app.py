@@ -118,13 +118,28 @@ async def upload_pdf(file: UploadFile = File(...), api_key: str = Form(...)):
             vector_db = VectorDatabase(embedding_model)
             vector_db = await vector_db.abuild_from_list(document_chunks)
             
+            # Generate a 4-line summary using the first few chunks
+            logger.info("Generating document summary...")
+            chat_model = ChatOpenAI(model_name="gpt-4o-mini")
+            summary_prompt = f"""Provide a concise summary of this document in no more than 100 words. Focus on the key aspects and main contributions.
+
+            Document content:
+            {' '.join(document_chunks[:5])}
+            """
+            summary_messages = [
+                {"role": "system", "content": "You are a helpful assistant that provides concise document summaries. Always stay within the specified word limit."},
+                {"role": "user", "content": summary_prompt}
+            ]
+            summary_response = chat_model.run(summary_messages)
+            
             pdf_uploaded = True
             
             logger.info(f"Successfully processed PDF with {len(document_chunks)} chunks")
             return {
-                "message": "PDF processed successfully",
+                "message": f"PDF processed successfully. Here's a summary:\n{summary_response}",
                 "chunks_count": len(document_chunks),
-                "filename": file.filename
+                "filename": file.filename,
+                "summary": summary_response
             }
             
         finally:
@@ -157,11 +172,37 @@ async def rag_chat(request: RAGChatRequest):
         # Set the API key for the aimakerspace library
         os.environ["OPENAI_API_KEY"] = request.api_key
         
+        # Adjust search strategy based on question type
+        k = request.k
+        query = request.user_message.lower()
+        
+        # For references/citations
+        if any(word in query for word in ["reference", "cite", "citation", "paper", "author", "publication", "work"]):
+            k = max(k, 7)  # Use more chunks to find scattered references
+            # Modify query to specifically look for reference patterns
+            request.user_message += " [et al., references, citations, authors]"
+            logger.info("Reference question detected, expanding search context")
+        
+        # For pros/cons, advantages/disadvantages
+        elif any(word in query for word in ["pro", "con", "advantage", "disadvantage", "benefit", "limitation", "strength", "weakness"]):
+            k = max(k, 5)  # Use more chunks to find scattered pros/cons
+            # Modify query to look for evaluative statements
+            request.user_message += " [advantages, disadvantages, benefits, limitations, performance]"
+            logger.info("Pros/cons question detected, expanding search context")
+        
+        # For broad or vague questions
+        elif any(phrase in query for phrase in [
+            "what is this", "what's this", "what is the document", "what's the document",
+            "give me more details", "tell me more", "can you explain", "give me details"
+        ]):
+            k = max(k, 5)  # Use at least 5 chunks for broad questions
+            logger.info("Broad/vague question detected, expanding search context")
+        
         # Retrieve relevant chunks from vector database
-        logger.info("Searching for relevant context...")
+        logger.info(f"Searching for relevant context with k={k}...")
         relevant_chunks = vector_db.search_by_text(
             request.user_message, 
-            k=request.k, 
+            k=k, 
             return_as_text=True
         )
         
@@ -172,16 +213,56 @@ async def rag_chat(request: RAGChatRequest):
         context = "\n\n".join(relevant_chunks)
         
         # Create system message with context
-        system_message = f"""You are a helpful assistant that answers questions based ONLY on the provided context from the uploaded PDF. 
+        # Detect if this is a broad/vague question
+        is_broad_question = any(phrase in request.user_message.lower() for phrase in [
+            "what is this", "what's this", "what is the document", "what's the document",
+            "give me more details", "tell me more", "can you explain", "give me details"
+        ])
+
+        # Customize system message based on question type
+        query = request.user_message.lower()
+        
+        if any(word in query for word in ["reference", "cite", "citation", "paper", "author", "publication", "work"]):
+            system_message = f"""You are a helpful assistant that finds references and citations in academic papers. 
+
+Context from PDF:
+{context}
+
+Instructions:
+- Look for any references, citations, or mentions of other papers/authors in the context
+- Include author names, paper titles, years, and any other citation details you find
+- If you find references, format them clearly and explain what they are cited for
+- If no references are found in the provided context, say "I cannot find any references in this section of the document"
+- Be specific and cite the exact text where references are mentioned"""
+
+        elif any(word in query for word in ["pro", "con", "advantage", "disadvantage", "benefit", "limitation", "strength", "weakness"]):
+            system_message = f"""You are a helpful assistant that analyzes advantages and disadvantages in academic papers. 
+
+Context from PDF:
+{context}
+
+Instructions:
+- Look for any mentions of advantages, benefits, strengths, limitations, challenges, or drawbacks
+- Organize your response into clear pros and cons if both are found
+- Look for comparative statements, performance metrics, or evaluative language
+- If you find partial information (only pros or only cons), provide what you found
+- Be specific and cite the relevant parts of the context
+- If no pros/cons are found in the context, say "I cannot find explicit advantages or disadvantages in this section"
+- Focus on factual statements from the text, not interpretations"""
+
+        else:
+            system_message = f"""You are a helpful assistant that answers questions based ONLY on the provided context from the uploaded PDF. 
 
 Context from PDF:
 {context}
 
 Instructions:
 - Answer the user's question using ONLY the information provided in the context above
+- For broad or vague questions, provide a comprehensive overview of the relevant information from the context
+- For specific questions, be precise and cite relevant parts of the context
 - If the answer cannot be found in the context, say "I cannot find information about that in the provided document"
 - Do not use any external knowledge beyond what's in the context
-- Be specific and cite relevant parts of the context when possible"""
+- Be direct and informative in your responses"""
 
         # Initialize ChatOpenAI and create streaming response
         chat_model = ChatOpenAI(model_name=request.model)

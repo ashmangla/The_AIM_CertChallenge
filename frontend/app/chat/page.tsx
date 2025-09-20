@@ -110,10 +110,10 @@ export default function Chat() {
         fileInputRef.current.value = '';
       }
       
-      // Add success message to chat
+      // Add success message and summary to chat
       setMessages(prev => [...prev, { 
         role: 'system', 
-        content: `PDF "${result.filename}" uploaded successfully! Created ${result.chunks_count} text chunks. You can now ask questions about the document.` 
+        content: `PDF "${result.filename}" uploaded successfully! Created ${result.chunks_count} text chunks.\n\nDocument Summary:\n${result.summary}\n\nYou can now ask questions about the document.` 
       }]);
 
     } catch (error) {
@@ -196,7 +196,7 @@ export default function Chat() {
     <div className="flex flex-col items-center justify-center min-h-screen p-4">
       <div className="w-full max-w-4xl bg-white/80 backdrop-blur-md rounded-2xl shadow-2xl p-8 border border-blue-100">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold text-blue-700">Chat with PDF</h1>
+          <h1 className="text-3xl font-bold text-blue-700">Paper Summarizer & Analyzer</h1>
           <Link
             href="/"
             className="text-blue-500 hover:text-blue-600 transition-colors"
@@ -224,7 +224,7 @@ export default function Chat() {
 
         {/* PDF Upload Section */}
         <div className="mb-6 p-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border border-purple-200">
-          <h3 className="text-lg font-semibold text-purple-700 mb-3">Upload PDF Document</h3>
+          <h3 className="text-lg font-semibold text-purple-700 mb-3">Upload Research Paper (PDF)</h3>
           
           {/* PDF Status */}
           <div className="mb-3 flex items-center gap-2">
@@ -269,7 +269,7 @@ export default function Chat() {
         <div className="h-[400px] overflow-y-auto mb-6 p-4 bg-gradient-to-br from-blue-50 to-purple-50 rounded-lg border border-blue-100 shadow-inner">
           {messages.length === 0 && (
             <div className="text-center text-gray-400 mt-32">
-              Upload a PDF and start asking questions about it!
+              Upload a research paper and start exploring its contents!
             </div>
           )}
           {messages.map((message, index) => (
@@ -279,12 +279,12 @@ export default function Chat() {
                 message.role === 'user'
                   ? 'bg-blue-100 ml-auto text-right'
                   : message.role === 'system'
-                  ? 'bg-green-100 mx-auto text-center'
-                  : 'bg-purple-100 mr-auto text-left'
+                  ? 'bg-emerald-50 mx-auto text-center border border-emerald-200'
+                  : 'bg-indigo-50 mr-auto text-left border border-indigo-200'
               }`}
             >
-              <span className="block text-xs font-semibold mb-1 text-blue-400">
-                {message.role === 'user' ? 'You' : message.role === 'system' ? 'System' : 'AI'}
+              <span className="block text-xs font-semibold mb-1 text-indigo-600">
+                {message.role === 'user' ? 'You' : message.role === 'system' ? 'System' : 'Research Assistant'}
               </span>
               <p className="text-gray-800 whitespace-pre-line">{message.content}</p>
             </div>
@@ -298,7 +298,7 @@ export default function Chat() {
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={pdfStatus.pdf_uploaded ? "Ask a question about your PDF..." : "Upload a PDF first to start chatting"}
+            placeholder={pdfStatus.pdf_uploaded ? "Ask about methodology, references, pros/cons, or any aspect of the paper..." : "Upload a research paper to start analyzing"}
             className="flex-1 p-3 border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white placeholder:text-blue-300"
             disabled={isLoading || !pdfStatus.pdf_uploaded}
           />
