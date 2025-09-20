@@ -3,7 +3,7 @@ from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 # Import Pydantic for data validation and settings management
-from pydantic import BaseModel
+from pydantic import BaseModel, HttpUrl
 # Import OpenAI client for interacting with OpenAI's API
 from openai import OpenAI
 import os
@@ -18,6 +18,7 @@ import traceback
 # Add the parent directory to sys.path to import aimakerspace
 sys.path.append(str(Path(__file__).parent.parent))
 from aimakerspace.text_utils import PDFLoader, CharacterTextSplitter
+from aimakerspace.video_utils import VideoLoader
 from aimakerspace.vectordatabase import VectorDatabase
 from aimakerspace.openai_utils.embedding import EmbeddingModel
 from aimakerspace.openai_utils.chatmodel import ChatOpenAI
@@ -32,21 +33,22 @@ app = FastAPI(title="RAG-Enabled Chat API")
 # Global variables for RAG system
 vector_db: Optional[VectorDatabase] = None
 document_chunks: List[str] = []
+document_sources: List[str] = []  # Track sources of chunks
 pdf_uploaded = False
 
 # Get allowed origins from environment variable or use defaults
 ALLOWED_ORIGINS = os.getenv(
     "ALLOWED_ORIGINS",
-    "http://localhost:3000,https://the-ai-engineer-challenge-two.vercel.app"
+    "http://localhost:3000,https://the-ai-engineer-challenge-5jt8mkcw3-ashima-manglas-projects.vercel.app"
 ).split(",")
+
+# Log the allowed origins for debugging
+logger.info(f"Allowed origins: {ALLOWED_ORIGINS}")
 
 # Configure CORS (Cross-Origin Resource Sharing) middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://the-ai-engineer-challenge-two.vercel.app",
-        "http://localhost:3000"
-    ],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
@@ -62,6 +64,16 @@ class ChatRequest(BaseModel):
     model: Optional[str] = "gpt-4o-mini"  # Changed to a valid model
     api_key: str          # OpenAI API key for authentication
 
+# Define the data model for document upload options
+class DocumentUploadOptions(BaseModel):
+    append_context: bool  # Whether to append to existing context or start fresh
+
+# Define the data model for YouTube URL upload
+class YouTubeRequest(BaseModel):
+    url: HttpUrl          # YouTube video URL
+    api_key: str          # OpenAI API key for authentication
+    options: DocumentUploadOptions  # Upload options
+
 # Define the data model for RAG chat requests
 class RAGChatRequest(BaseModel):
     user_message: str      # Message from the user
@@ -69,9 +81,98 @@ class RAGChatRequest(BaseModel):
     api_key: str          # OpenAI API key for authentication
     k: Optional[int] = 3   # Number of relevant chunks to retrieve
 
+# YouTube URL upload endpoint
+@app.post("/api/upload-youtube")
+async def upload_youtube(request: YouTubeRequest):
+    """Process a YouTube video URL for RAG system."""
+    global vector_db, document_chunks, pdf_uploaded
+    
+    try:
+        logger.info(f"Received YouTube URL: {request.url}")
+        
+        # Validate API key
+        if not request.api_key:
+            raise HTTPException(status_code=400, detail="API key is required")
+        
+        # Set the API key for the aimakerspace library
+        os.environ["OPENAI_API_KEY"] = request.api_key
+        
+        try:
+            # Process YouTube video
+            logger.info("Loading video content...")
+            video_loader = VideoLoader(str(request.url))
+            video_loader.load_url()
+            
+            if not video_loader.documents:
+                raise HTTPException(status_code=400, detail="Could not extract text from video")
+            
+            # Split text into chunks
+            logger.info("Splitting text into chunks...")
+            text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+            new_chunks = text_splitter.split_texts(video_loader.documents)
+            
+            if not new_chunks:
+                raise HTTPException(status_code=400, detail="No text chunks could be created from video")
+            
+            # Add source information to each chunk
+            source_prefix = f"[Source: YouTube - {request.url}]\n"
+            new_chunks_with_source = [source_prefix + chunk for chunk in new_chunks]
+            
+            # Handle append vs replace
+            if request.options.append_context and document_chunks:
+                document_chunks.extend(new_chunks_with_source)
+            else:
+                document_chunks = new_chunks_with_source
+            
+            # Create vector database and embeddings
+            logger.info(f"Creating embeddings for {len(document_chunks)} chunks...")
+            embedding_model = EmbeddingModel()
+            vector_db = VectorDatabase(embedding_model)
+            vector_db = await vector_db.abuild_from_list(document_chunks)
+            
+            # Generate a summary using the first few chunks
+            logger.info("Generating video summary...")
+            chat_model = ChatOpenAI(model_name="gpt-4o-mini")
+            summary_prompt = f"""Provide a concise summary of this video in no more than 100 words. Focus on the key points and main message.
+
+            Video transcript:
+            {' '.join(document_chunks[:5])}
+            """
+            summary_messages = [
+                {"role": "system", "content": "You are a helpful assistant that provides concise video summaries. Always stay within the specified word limit."},
+                {"role": "user", "content": summary_prompt}
+            ]
+            summary_response = chat_model.run(summary_messages)
+            
+            pdf_uploaded = True
+            
+            logger.info(f"Successfully processed video with {len(document_chunks)} chunks")
+            return {
+                "message": f"Video processed successfully. Here's a summary:\n{summary_response}",
+                "chunks_count": len(document_chunks),
+                "url": str(request.url),
+                "summary": summary_response
+            }
+            
+        except Exception as e:
+            error_msg = f"Error processing video: {str(e)}"
+            logger.error(error_msg)
+            raise HTTPException(status_code=500, detail=error_msg)
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        error_msg = f"Error processing video: {str(e)}\n{traceback.format_exc()}"
+        logger.error(error_msg)
+        raise HTTPException(status_code=500, detail=f"Error processing video: {str(e)}")
+
 # PDF upload endpoint for RAG system
 @app.post("/api/upload-pdf")
-async def upload_pdf(file: UploadFile = File(...), api_key: str = Form(...)):
+async def upload_pdf(
+    file: UploadFile = File(...), 
+    api_key: str = Form(...),
+    append_context: bool = Form(False)
+):
     """Upload and process a PDF file for RAG system."""
     global vector_db, document_chunks, pdf_uploaded
     
@@ -107,10 +208,22 @@ async def upload_pdf(file: UploadFile = File(...), api_key: str = Form(...)):
             # Split text into chunks
             logger.info("Splitting text into chunks...")
             text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-            document_chunks = text_splitter.split_texts(pdf_loader.documents)
+            new_chunks = text_splitter.split_texts(pdf_loader.documents)
             
-            if not document_chunks:
+            if not new_chunks:
                 raise HTTPException(status_code=400, detail="No text chunks could be created from PDF")
+            
+            # Add source information to each chunk
+            source_prefix = f"[Source: PDF - {file.filename}]\n"
+            new_chunks_with_source = [source_prefix + chunk for chunk in new_chunks]
+            
+            # Handle append vs replace
+            if append_context and document_chunks:
+                logger.info("Appending to existing context...")
+                document_chunks.extend(new_chunks_with_source)
+            else:
+                logger.info("Creating new context...")
+                document_chunks = new_chunks_with_source
             
             # Create vector database and embeddings
             logger.info(f"Creating embeddings for {len(document_chunks)} chunks...")

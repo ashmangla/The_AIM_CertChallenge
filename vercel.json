@@ -12,7 +12,8 @@
         "src": "api/app.py",
         "use": "@vercel/python",
         "config": {
-          "runtime": "python3.9"
+          "runtime": "python3.9",
+          "maxDuration": 60
         }
       }
     ],
@@ -27,6 +28,7 @@
       }
     ],
     "env": {
-      "NEXT_PUBLIC_API_URL": ""
+      "ALLOWED_ORIGINS": "https://${VERCEL_URL}",
+      "OPENAI_API_KEY": ""
     }
   } 

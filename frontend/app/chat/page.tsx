@@ -4,9 +4,16 @@ import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { API_URL } from '../config';
 
-interface PDFStatus {
+interface DocumentStatus {
   pdf_uploaded: boolean;
   chunks_count: number;
+}
+
+interface YouTubeUploadResponse {
+  message: string;
+  chunks_count: number;
+  url: string;
+  summary: string;
 }
 
 export default function Chat() {
@@ -17,7 +24,9 @@ export default function Chat() {
   const [error, setError] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [pdfStatus, setPdfStatus] = useState<PDFStatus>({ pdf_uploaded: false, chunks_count: 0 });
+  const [pdfStatus, setPdfStatus] = useState<DocumentStatus>({ pdf_uploaded: false, chunks_count: 0 });
+  const [youtubeUrl, setYoutubeUrl] = useState('');
+  const [appendContext, setAppendContext] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -72,6 +81,73 @@ export default function Chat() {
     }
   };
 
+  const handleUploadYoutube = async () => {
+    if (!youtubeUrl || !apiKey.trim()) {
+      setError('Please enter a YouTube URL and your API key.');
+      return;
+    }
+
+    // Validate YouTube URL format
+    try {
+      const url = new URL(youtubeUrl);
+      if (!url.hostname.includes('youtube.com') && !url.hostname.includes('youtu.be')) {
+        setError('Please enter a valid YouTube URL');
+        return;
+      }
+    } catch (e) {
+      setError('Please enter a valid URL');
+      return;
+    }
+
+    setIsUploading(true);
+    setError(null);
+
+    try {
+      console.log('Processing YouTube URL:', `${API_URL}/api/upload-youtube`);
+      const response = await fetch(`${API_URL}/api/upload-youtube`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          url: youtubeUrl,
+          api_key: apiKey,
+          options: {
+            append_context: appendContext
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('YouTube Upload Error:', response.status, errorText);
+        throw new Error(`Upload Error: ${response.status} ${errorText}`);
+      }
+
+      const result: YouTubeUploadResponse = await response.json();
+      console.log('Upload successful:', result);
+      
+      // Update status
+      setPdfStatus({ pdf_uploaded: true, chunks_count: result.chunks_count });
+      
+      // Clear the URL input
+      setYoutubeUrl('');
+      
+      // Add success message and summary to chat
+      setMessages(prev => [...prev, { 
+        role: 'system', 
+        content: `Video processed successfully! Created ${result.chunks_count} text chunks.\n\nVideo Summary:\n${result.summary}\n\nYou can now ask questions about the video content.` 
+      }]);
+
+    } catch (error) {
+      console.error('Upload error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to process YouTube video';
+      setError(errorMessage);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const handleUploadPdf = async () => {
     if (!selectedFile || !apiKey.trim()) {
       setError('Please select a PDF file and enter your API key.');
@@ -85,6 +161,7 @@ export default function Chat() {
       const formData = new FormData();
       formData.append('file', selectedFile);
       formData.append('api_key', apiKey);
+      formData.append('append_context', appendContext.toString());
 
       console.log('Uploading PDF to:', `${API_URL}/api/upload-pdf`);
       const response = await fetch(`${API_URL}/api/upload-pdf`, {
@@ -222,54 +299,110 @@ export default function Chat() {
           />
         </div>
 
-        {/* PDF Upload Section */}
+        {/* Upload Section */}
         <div className="mb-6 p-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border border-purple-200">
-          <h3 className="text-lg font-semibold text-purple-700 mb-3">Upload Research Paper (PDF)</h3>
+          <h3 className="text-lg font-semibold text-purple-700 mb-3">Upload Content</h3>
           
-          {/* PDF Status */}
+          {/* Status */}
           <div className="mb-3 flex items-center gap-2">
             <span className="text-sm text-gray-600">Status:</span>
             <span className={`px-2 py-1 rounded text-xs ${
               pdfStatus.pdf_uploaded ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
             }`}>
               {pdfStatus.pdf_uploaded 
-                ? `PDF uploaded (${pdfStatus.chunks_count} chunks)` 
-                : 'No PDF uploaded'
+                ? `Content uploaded (${pdfStatus.chunks_count} chunks)` 
+                : 'No content uploaded'
               }
             </span>
           </div>
 
-          <div className="flex gap-3 items-end">
-            <div className="flex-1">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".pdf"
-                onChange={handleFileSelect}
-                className="w-full p-2 border border-purple-200 rounded focus:outline-none focus:ring-2 focus:ring-purple-400 bg-white"
-              />
-            </div>
-            <button
-              onClick={handleUploadPdf}
-              disabled={!selectedFile || !apiKey || isUploading}
-              className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded font-bold shadow-md hover:from-purple-600 hover:to-pink-600 focus:outline-none focus:ring-2 focus:ring-purple-400 disabled:opacity-50 transition-all duration-150"
-            >
-              {isUploading ? 'Uploading...' : 'Upload PDF'}
-            </button>
-          </div>
-          
-          {selectedFile && (
-            <div className="mt-2 text-sm text-purple-600">
-              Selected: {selectedFile.name} ({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
+          {/* Context Options */}
+          {pdfStatus.pdf_uploaded && (
+            <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+              <div className="text-sm font-medium text-gray-700 mb-2">How would you like to handle the new content?</div>
+              <div className="flex gap-4">
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="contextOption"
+                    checked={!appendContext}
+                    onChange={() => setAppendContext(false)}
+                    className="mr-2"
+                  />
+                  <span className="text-sm">Replace existing content</span>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="contextOption"
+                    checked={appendContext}
+                    onChange={() => setAppendContext(true)}
+                    className="mr-2"
+                  />
+                  <span className="text-sm">Add to existing content</span>
+                </label>
+              </div>
             </div>
           )}
+
+          {/* PDF Upload */}
+          <div className="mb-4">
+            <h4 className="text-sm font-semibold text-purple-600 mb-2">Upload Research Paper (PDF)</h4>
+            <div className="flex gap-3 items-end">
+              <div className="flex-1">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf"
+                  onChange={handleFileSelect}
+                  className="w-full p-2 border border-purple-200 rounded focus:outline-none focus:ring-2 focus:ring-purple-400 bg-white"
+                />
+              </div>
+              <button
+                onClick={handleUploadPdf}
+                disabled={!selectedFile || !apiKey || isUploading}
+                className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded font-bold shadow-md hover:from-purple-600 hover:to-pink-600 focus:outline-none focus:ring-2 focus:ring-purple-400 disabled:opacity-50 transition-all duration-150"
+              >
+                {isUploading ? 'Uploading...' : 'Upload PDF'}
+              </button>
+            </div>
+            
+            {selectedFile && (
+              <div className="mt-2 text-sm text-purple-600">
+                Selected: {selectedFile.name} ({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
+              </div>
+            )}
+          </div>
+
+          {/* YouTube URL Upload */}
+          <div>
+            <h4 className="text-sm font-semibold text-purple-600 mb-2">Or Add YouTube Video URL</h4>
+            <div className="flex gap-3 items-end">
+              <div className="flex-1">
+                <input
+                  type="url"
+                  value={youtubeUrl}
+                  onChange={(e) => setYoutubeUrl(e.target.value)}
+                  placeholder="Enter YouTube video URL"
+                  className="w-full p-2 border border-purple-200 rounded focus:outline-none focus:ring-2 focus:ring-purple-400 bg-white"
+                />
+              </div>
+              <button
+                onClick={handleUploadYoutube}
+                disabled={!youtubeUrl || !apiKey || isUploading}
+                className="px-4 py-2 bg-gradient-to-r from-red-500 to-pink-500 text-white rounded font-bold shadow-md hover:from-red-600 hover:to-pink-600 focus:outline-none focus:ring-2 focus:ring-red-400 disabled:opacity-50 transition-all duration-150"
+              >
+                {isUploading ? 'Processing...' : 'Process Video'}
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Chat Messages */}
         <div className="h-[400px] overflow-y-auto mb-6 p-4 bg-gradient-to-br from-blue-50 to-purple-50 rounded-lg border border-blue-100 shadow-inner">
           {messages.length === 0 && (
             <div className="text-center text-gray-400 mt-32">
-              Upload a research paper and start exploring its contents!
+              Upload a research paper or add a YouTube video URL to start exploring!
             </div>
           )}
           {messages.map((message, index) => (
@@ -298,7 +431,7 @@ export default function Chat() {
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={pdfStatus.pdf_uploaded ? "Ask about methodology, references, pros/cons, or any aspect of the paper..." : "Upload a research paper to start analyzing"}
+            placeholder={pdfStatus.pdf_uploaded ? "Ask about methodology, references, pros/cons, or any aspect of the content..." : "Upload a research paper or YouTube video to start analyzing"}
             className="flex-1 p-3 border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white placeholder:text-blue-300"
             disabled={isLoading || !pdfStatus.pdf_uploaded}
           />
