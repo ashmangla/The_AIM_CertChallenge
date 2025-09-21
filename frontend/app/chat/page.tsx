@@ -206,9 +206,9 @@ export default function Chat() {
     e.preventDefault();
     if (!input.trim() || !apiKey.trim()) return;
 
-    // Check if PDF is uploaded for RAG functionality
+    // Check if content is uploaded for RAG functionality
     if (!pdfStatus.pdf_uploaded) {
-      setError('Please upload a PDF file first to enable chat functionality.');
+      setError('Please upload content (PDF or YouTube video) first to enable chat functionality.');
       return;
     }
 
@@ -219,8 +219,8 @@ export default function Chat() {
     setError(null);
 
     try {
-      console.log('Sending RAG chat request to:', `${API_URL}/api/rag-chat`);
-      const response = await fetch(`${API_URL}/api/rag-chat`, {
+      console.log('Sending RAG chat request to:', `${API_URL}/api/rag-chat-mixed-media`);
+      const response = await fetch(`${API_URL}/api/rag-chat-mixed-media`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -316,34 +316,7 @@ export default function Chat() {
             </span>
           </div>
 
-          {/* Context Options */}
-          {pdfStatus.pdf_uploaded && (
-            <div className="mb-4 p-3 bg-blue-50 rounded-lg">
-              <div className="text-sm font-medium text-gray-700 mb-2">How would you like to handle the new content?</div>
-              <div className="flex gap-4">
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    name="contextOption"
-                    checked={!appendContext}
-                    onChange={() => setAppendContext(false)}
-                    className="mr-2"
-                  />
-                  <span className="text-sm">Replace existing content</span>
-                </label>
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    name="contextOption"
-                    checked={appendContext}
-                    onChange={() => setAppendContext(true)}
-                    className="mr-2"
-                  />
-                  <span className="text-sm">Add to existing content</span>
-                </label>
-              </div>
-            </div>
-          )}
+          {/* Context Options - Only show when content exists and user is actively uploading */}
 
           {/* PDF Upload */}
           <div className="mb-4">
@@ -372,6 +345,35 @@ export default function Chat() {
                 Selected: {selectedFile.name} ({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
               </div>
             )}
+            
+            {/* Context Options for PDF - Only show when content exists and file is selected */}
+            {selectedFile && pdfStatus.pdf_uploaded && (
+              <div className="mt-3 p-3 bg-blue-50 rounded-lg">
+                <div className="text-sm font-medium text-gray-700 mb-2">How would you like to handle this content?</div>
+                <div className="flex gap-4">
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="pdfContextOption"
+                      checked={!appendContext}
+                      onChange={() => setAppendContext(false)}
+                      className="mr-2"
+                    />
+                    <span className="text-sm">Replace existing content</span>
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="pdfContextOption"
+                      checked={appendContext}
+                      onChange={() => setAppendContext(true)}
+                      className="mr-2"
+                    />
+                    <span className="text-sm">Add to existing content</span>
+                  </label>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* YouTube URL Upload */}
@@ -395,6 +397,35 @@ export default function Chat() {
                 {isUploading ? 'Processing...' : 'Process Video'}
               </button>
             </div>
+            
+            {/* Context Options for YouTube - Only show when content exists and URL is entered */}
+            {youtubeUrl && pdfStatus.pdf_uploaded && (
+              <div className="mt-3 p-3 bg-blue-50 rounded-lg">
+                <div className="text-sm font-medium text-gray-700 mb-2">How would you like to handle this content?</div>
+                <div className="flex gap-4">
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="youtubeContextOption"
+                      checked={!appendContext}
+                      onChange={() => setAppendContext(false)}
+                      className="mr-2"
+                    />
+                    <span className="text-sm">Replace existing content</span>
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="youtubeContextOption"
+                      checked={appendContext}
+                      onChange={() => setAppendContext(true)}
+                      className="mr-2"
+                    />
+                    <span className="text-sm">Add to existing content</span>
+                  </label>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -440,7 +471,7 @@ export default function Chat() {
             disabled={isLoading || !pdfStatus.pdf_uploaded}
             className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-lg font-bold shadow-md hover:from-blue-600 hover:to-purple-600 focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:opacity-50 transition-all duration-150"
           >
-            {isLoading ? 'Sending...' : 'Send'}
+            {isLoading ? 'Analyzing...' : 'Ask Question'}
           </button>
         </form>
       </div>

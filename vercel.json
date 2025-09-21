@@ -9,30 +9,24 @@
         }
       },
       { 
-        "src": "api/*.py",
+        "src": "api/app.py",
         "use": "@vercel/python",
         "config": {
-          "runtime": "python3.9",
-          "maxDuration": 60,
-          "buildCommand": "pip install -r requirements.txt"
+          "runtime": "python3.9"
         }
       }
     ],
     "routes": [
-      {
-        "src": "/api/(.*)",
-        "dest": "/api/app.py"
+      { 
+        "src": "/api/(.*)", 
+        "dest": "api/app.py"
       },
-      {
-        "handle": "filesystem"
-      },
-      {
-        "src": "/(.*)",
-        "dest": "/frontend/$1"
+      { 
+        "src": "/(.*)", 
+        "dest": "frontend/$1"
       }
     ],
     "env": {
-      "ALLOWED_ORIGINS": "https://${VERCEL_URL}",
-      "OPENAI_API_KEY": ""
+      "ALLOWED_ORIGINS": "http://localhost:3000,https://${VERCEL_URL}"
     }
   } 

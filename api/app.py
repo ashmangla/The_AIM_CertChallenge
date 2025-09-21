@@ -130,13 +130,13 @@ async def upload_youtube(request: YouTubeRequest):
             vector_db = VectorDatabase(embedding_model)
             vector_db = await vector_db.abuild_from_list(document_chunks)
             
-            # Generate a summary using the first few chunks
+            # Generate a summary using the video chunks only
             logger.info("Generating video summary...")
             chat_model = ChatOpenAI(model_name="gpt-4o-mini")
             summary_prompt = f"""Provide a concise summary of this video in no more than 100 words. Focus on the key points and main message.
 
             Video transcript:
-            {' '.join(document_chunks[:5])}
+            {' '.join(new_chunks_with_source[:5])}
             """
             summary_messages = [
                 {"role": "system", "content": "You are a helpful assistant that provides concise video summaries. Always stay within the specified word limit."},
@@ -267,9 +267,9 @@ async def upload_pdf(
         raise HTTPException(status_code=500, detail=f"Error processing PDF: {str(e)}")
 
 # RAG-enabled chat endpoint
-@app.post("/api/rag-chat")
+@app.post("/api/rag-chat-mixed-media")
 async def rag_chat(request: RAGChatRequest):
-    """Chat endpoint that uses uploaded PDF as context."""
+    """Chat endpoint that uses uploaded mixed media (PDFs, YouTube videos) as context."""
     global vector_db, document_chunks, pdf_uploaded
     
     try:
@@ -289,8 +289,22 @@ async def rag_chat(request: RAGChatRequest):
         k = request.k
         query = request.user_message.lower()
         
+        # For video-specific questions
+        if any(word in query for word in ["video", "vide", "youtube", "watch", "watched", "viewing", "clip"]):
+            k = max(k, 10)  # Use more chunks to find video content
+            # Add search terms to help find video content
+            request.user_message += " [Source: YouTube video content]"
+            logger.info("Video-specific question detected, expanding search context")
+        
+        # For document/PDF-specific questions  
+        elif any(word in query for word in ["document", "pdf", "paper", "file", "uploaded file"]):
+            k = max(k, 6)  # Use more chunks to find document content
+            # Add search terms to help find PDF content
+            request.user_message += " [PDF document content]"
+            logger.info("Document-specific question detected, expanding search context")
+        
         # For references/citations
-        if any(word in query for word in ["reference", "cite", "citation", "paper", "author", "publication", "work"]):
+        elif any(word in query for word in ["reference", "cite", "citation", "author", "publication", "work"]):
             k = max(k, 7)  # Use more chunks to find scattered references
             # Modify query to specifically look for reference patterns
             request.user_message += " [et al., references, citations, authors]"
@@ -364,16 +378,19 @@ Instructions:
 - Focus on factual statements from the text, not interpretations"""
 
         else:
-            system_message = f"""You are a helpful assistant that answers questions based ONLY on the provided context from the uploaded PDF. 
+            system_message = f"""You are a helpful assistant that answers questions based ONLY on the provided context from uploaded content (PDFs, Word documents, and YouTube videos). 
 
-Context from PDF:
+Context from uploaded content:
 {context}
 
 Instructions:
 - Answer the user's question using ONLY the information provided in the context above
+- The context may include content from multiple sources (documents and videos) - each source is labeled
+- For video-specific questions, focus on content marked with "[Source: YouTube -"
+- For document-specific questions, focus on content marked with "[PDF:" or document names
 - For broad or vague questions, provide a comprehensive overview of the relevant information from the context
 - For specific questions, be precise and cite relevant parts of the context
-- If the answer cannot be found in the context, say "I cannot find information about that in the provided document"
+- If the answer cannot be found in the context, say "I cannot find information about that in the provided content"
 - Do not use any external knowledge beyond what's in the context
 - Be direct and informative in your responses"""
 

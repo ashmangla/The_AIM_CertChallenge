@@ -28,7 +28,7 @@ export default function Home() {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-4">
       <div className="w-full max-w-2xl bg-white/80 backdrop-blur-md rounded-2xl shadow-2xl p-8 border border-blue-100">
-        <h1 className="text-4xl font-bold text-blue-700 mb-6">AI Chat Application</h1>
+        <h1 className="text-4xl font-bold text-blue-700 mb-6">Paper Summarizer & Analyzer</h1>
         
         <div className="mb-8">
           <div className="flex items-center gap-2 mb-2">
@@ -50,7 +50,7 @@ export default function Home() {
             href="/chat"
             className="block w-full p-4 text-center bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-lg font-bold shadow-md hover:from-blue-600 hover:to-purple-600 transition-all duration-150"
           >
-            Chat with PDF (RAG)
+            Start Analyzing
           </Link>
           
           <Link
