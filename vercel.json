@@ -1,19 +1,10 @@
 {
     "version": 2,
     "builds": [
-      { 
-        "src": "frontend/package.json", 
-        "use": "@vercel/next",
-        "config": {
-          "distDir": ".next"
-        }
-      },
+      { "src": "frontend/package.json", "use": "@vercel/next" },
       { 
         "src": "api/app.py",
-        "use": "@vercel/python",
-        "config": {
-          "runtime": "python3.9"
-        }
+        "use": "@vercel/python"
       }
     ],
     "routes": [
@@ -25,8 +16,5 @@
         "src": "/(.*)", 
         "dest": "frontend/$1"
       }
-    ],
-    "env": {
-      "ALLOWED_ORIGINS": "http://localhost:3000,https://${VERCEL_URL}"
-    }
+    ]
   } 
