@@ -27,6 +27,7 @@ export default function Chat() {
   const [pdfStatus, setPdfStatus] = useState<DocumentStatus>({ pdf_uploaded: false, chunks_count: 0 });
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [appendContext, setAppendContext] = useState(false);
+  const [hasUploadedInSession, setHasUploadedInSession] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -129,6 +130,7 @@ export default function Chat() {
       
       // Update status
       setPdfStatus({ pdf_uploaded: true, chunks_count: result.chunks_count });
+      setHasUploadedInSession(true);
       
       // Clear the URL input
       setYoutubeUrl('');
@@ -180,6 +182,7 @@ export default function Chat() {
       
       // Update PDF status
       setPdfStatus({ pdf_uploaded: true, chunks_count: result.chunks_count });
+      setHasUploadedInSession(true);
       
       // Clear the file selection
       setSelectedFile(null);
@@ -228,7 +231,7 @@ export default function Chat() {
         body: JSON.stringify({
           user_message: userMessage,
           api_key: apiKey,
-          k: 3, // Number of relevant chunks to retrieve
+          k: 8, // Number of relevant chunks to retrieve
         }),
       });
 
@@ -346,8 +349,8 @@ export default function Chat() {
               </div>
             )}
             
-            {/* Context Options for PDF - Only show when content exists and file is selected */}
-            {selectedFile && pdfStatus.pdf_uploaded && (
+            {/* Context Options for PDF - Only show when file is selected AND content was uploaded in this session */}
+            {selectedFile && hasUploadedInSession && (
               <div className="mt-3 p-3 bg-blue-50 rounded-lg">
                 <div className="text-sm font-medium text-gray-700 mb-2">How would you like to handle this content?</div>
                 <div className="flex gap-4">
@@ -398,8 +401,8 @@ export default function Chat() {
               </button>
             </div>
             
-            {/* Context Options for YouTube - Only show when content exists and URL is entered */}
-            {youtubeUrl && pdfStatus.pdf_uploaded && (
+            {/* Context Options for YouTube - Only show when URL is entered AND content was uploaded in this session */}
+            {youtubeUrl && hasUploadedInSession && (
               <div className="mt-3 p-3 bg-blue-50 rounded-lg">
                 <div className="text-sm font-medium text-gray-700 mb-2">How would you like to handle this content?</div>
                 <div className="flex gap-4">

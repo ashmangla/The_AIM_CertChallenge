@@ -79,7 +79,7 @@ class RAGChatRequest(BaseModel):
     user_message: str      # Message from the user
     model: Optional[str] = "gpt-4o-mini"  # OpenAI model to use
     api_key: str          # OpenAI API key for authentication
-    k: Optional[int] = 3   # Number of relevant chunks to retrieve
+    k: Optional[int] = 8   # Number of relevant chunks to retrieve
 
 # YouTube URL upload endpoint
 @app.post("/api/upload-youtube")
@@ -285,52 +285,9 @@ async def rag_chat(request: RAGChatRequest):
         # Set the API key for the aimakerspace library
         os.environ["OPENAI_API_KEY"] = request.api_key
         
-        # Adjust search strategy based on question type
-        k = request.k
-        query = request.user_message.lower()
-        
-        # For video-specific questions
-        if any(word in query for word in ["video", "vide", "youtube", "watch", "watched", "viewing", "clip"]):
-            k = max(k, 10)  # Use more chunks to find video content
-            # Add search terms to help find video content
-            request.user_message += " [Source: YouTube video content]"
-            logger.info("Video-specific question detected, expanding search context")
-        
-        # For document/PDF-specific questions  
-        elif any(word in query for word in ["document", "pdf", "paper", "file", "uploaded file"]):
-            k = max(k, 6)  # Use more chunks to find document content
-            # Add search terms to help find PDF content
-            request.user_message += " [PDF document content]"
-            logger.info("Document-specific question detected, expanding search context")
-        
-        # For methodology/research methods
-        elif any(word in query for word in ["methodology", "method", "approach", "technique", "procedure", "framework", "experimental", "analysis", "evaluation", "implementation"]):
-            k = max(k, 8)  # Use more chunks to find methodology sections
-            # Modify query to look for methodology-related terms
-            request.user_message += " [methodology, methods, approach, techniques, procedures, framework, experimental design, analysis, evaluation]"
-            logger.info("Methodology question detected, expanding search context")
-        
-        # For references/citations
-        elif any(word in query for word in ["reference", "cite", "citation", "author", "publication", "work"]):
-            k = max(k, 7)  # Use more chunks to find scattered references
-            # Modify query to specifically look for reference patterns
-            request.user_message += " [et al., references, citations, authors]"
-            logger.info("Reference question detected, expanding search context")
-        
-        # For pros/cons, advantages/disadvantages
-        elif any(word in query for word in ["pro", "con", "advantage", "disadvantage", "benefit", "limitation", "strength", "weakness"]):
-            k = max(k, 5)  # Use more chunks to find scattered pros/cons
-            # Modify query to look for evaluative statements
-            request.user_message += " [advantages, disadvantages, benefits, limitations, performance]"
-            logger.info("Pros/cons question detected, expanding search context")
-        
-        # For broad or vague questions
-        elif any(phrase in query for phrase in [
-            "what is this", "what's this", "what is the document", "what's the document",
-            "give me more details", "tell me more", "can you explain", "give me details"
-        ]):
-            k = max(k, 5)  # Use at least 5 chunks for broad questions
-            logger.info("Broad/vague question detected, expanding search context")
+        # Use a consistent k value for all queries - keep it simple
+        k = request.k  # Default is now 8, which should work well for most questions
+        logger.info(f"Using k={k} chunks for search")
         
         # Retrieve relevant chunks from vector database
         logger.info(f"Searching for relevant context with k={k}...")
@@ -356,61 +313,8 @@ async def rag_chat(request: RAGChatRequest):
         # Combine relevant chunks into context
         context = "\n\n".join(relevant_chunks)
         
-        # Create system message with context
-        # Detect if this is a broad/vague question
-        is_broad_question = any(phrase in request.user_message.lower() for phrase in [
-            "what is this", "what's this", "what is the document", "what's the document",
-            "give me more details", "tell me more", "can you explain", "give me details"
-        ])
-
-        # Customize system message based on question type
-        query = request.user_message.lower()
-        
-        if any(word in query for word in ["methodology", "method", "approach", "technique", "procedure", "framework", "experimental", "analysis", "evaluation", "implementation"]):
-            system_message = f"""You are a helpful assistant that explains research methodology and methods in academic papers.
-
-Context from PDF:
-{context}
-
-Instructions:
-- Look for any descriptions of methods, methodologies, approaches, techniques, procedures, or frameworks
-- Explain the experimental design, data collection methods, analysis techniques, and evaluation procedures
-- Include details about datasets, tools, algorithms, or technologies used
-- Describe how the research was conducted and what steps were taken
-- If methodology information is found, provide a comprehensive explanation
-- If no methodology is found in the provided context, say "I cannot find methodology information in this section of the document"
-- Be specific and cite the exact text where methodology is described"""
-
-        elif any(word in query for word in ["reference", "cite", "citation", "paper", "author", "publication", "work"]):
-            system_message = f"""You are a helpful assistant that finds references and citations in academic papers. 
-
-Context from PDF:
-{context}
-
-Instructions:
-- Look for any references, citations, or mentions of other papers/authors in the context
-- Include author names, paper titles, years, and any other citation details you find
-- If you find references, format them clearly and explain what they are cited for
-- If no references are found in the provided context, say "I cannot find any references in this section of the document"
-- Be specific and cite the exact text where references are mentioned"""
-
-        elif any(word in query for word in ["pro", "con", "advantage", "disadvantage", "benefit", "limitation", "strength", "weakness"]):
-            system_message = f"""You are a helpful assistant that analyzes advantages and disadvantages in academic papers. 
-
-Context from PDF:
-{context}
-
-Instructions:
-- Look for any mentions of advantages, benefits, strengths, limitations, challenges, or drawbacks
-- Organize your response into clear pros and cons if both are found
-- Look for comparative statements, performance metrics, or evaluative language
-- If you find partial information (only pros or only cons), provide what you found
-- Be specific and cite the relevant parts of the context
-- If no pros/cons are found in the context, say "I cannot find explicit advantages or disadvantages in this section"
-- Focus on factual statements from the text, not interpretations"""
-
-        else:
-            system_message = f"""You are a helpful assistant that answers questions based ONLY on the provided context from uploaded content (PDFs, Word documents, and YouTube videos). 
+        # Create simple system message for all questions
+        system_message = f"""You are a helpful assistant that answers questions based ONLY on the provided context from uploaded content (PDFs and YouTube videos). 
 
 Context from uploaded content:
 {context}
@@ -418,10 +322,6 @@ Context from uploaded content:
 Instructions:
 - Answer the user's question using ONLY the information provided in the context above
 - The context may include content from multiple sources (documents and videos) - each source is labeled
-- For video-specific questions, focus on content marked with "[Source: YouTube -"
-- For document-specific questions, focus on content marked with "[PDF:" or document names
-- For broad or vague questions, provide a comprehensive overview of the relevant information from the context
-- For specific questions, be precise and cite relevant parts of the context
 - If the answer cannot be found in the context, say "I cannot find information about that in the provided content"
 - Do not use any external knowledge beyond what's in the context
 - Be direct and informative in your responses"""
