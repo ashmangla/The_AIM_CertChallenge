@@ -303,6 +303,13 @@ async def rag_chat(request: RAGChatRequest):
             request.user_message += " [PDF document content]"
             logger.info("Document-specific question detected, expanding search context")
         
+        # For methodology/research methods
+        elif any(word in query for word in ["methodology", "method", "approach", "technique", "procedure", "framework", "experimental", "analysis", "evaluation", "implementation"]):
+            k = max(k, 8)  # Use more chunks to find methodology sections
+            # Modify query to look for methodology-related terms
+            request.user_message += " [methodology, methods, approach, techniques, procedures, framework, experimental design, analysis, evaluation]"
+            logger.info("Methodology question detected, expanding search context")
+        
         # For references/citations
         elif any(word in query for word in ["reference", "cite", "citation", "author", "publication", "work"]):
             k = max(k, 7)  # Use more chunks to find scattered references
@@ -334,6 +341,16 @@ async def rag_chat(request: RAGChatRequest):
         )
         
         if not relevant_chunks:
+            # Fallback: use first few chunks if no relevant chunks found
+            logger.warning("No relevant chunks found, using fallback strategy with first 5 chunks")
+            relevant_chunks = document_chunks[:5] if len(document_chunks) >= 5 else document_chunks
+        
+        # If still no chunks, try with a more general search
+        if not relevant_chunks and document_chunks:
+            logger.warning("Using all available chunks as last resort")
+            relevant_chunks = document_chunks[:8]  # Use first 8 chunks
+        
+        if not relevant_chunks:
             raise HTTPException(status_code=500, detail="Could not retrieve relevant context")
         
         # Combine relevant chunks into context
@@ -349,7 +366,22 @@ async def rag_chat(request: RAGChatRequest):
         # Customize system message based on question type
         query = request.user_message.lower()
         
-        if any(word in query for word in ["reference", "cite", "citation", "paper", "author", "publication", "work"]):
+        if any(word in query for word in ["methodology", "method", "approach", "technique", "procedure", "framework", "experimental", "analysis", "evaluation", "implementation"]):
+            system_message = f"""You are a helpful assistant that explains research methodology and methods in academic papers.
+
+Context from PDF:
+{context}
+
+Instructions:
+- Look for any descriptions of methods, methodologies, approaches, techniques, procedures, or frameworks
+- Explain the experimental design, data collection methods, analysis techniques, and evaluation procedures
+- Include details about datasets, tools, algorithms, or technologies used
+- Describe how the research was conducted and what steps were taken
+- If methodology information is found, provide a comprehensive explanation
+- If no methodology is found in the provided context, say "I cannot find methodology information in this section of the document"
+- Be specific and cite the exact text where methodology is described"""
+
+        elif any(word in query for word in ["reference", "cite", "citation", "paper", "author", "publication", "work"]):
             system_message = f"""You are a helpful assistant that finds references and citations in academic papers. 
 
 Context from PDF:
