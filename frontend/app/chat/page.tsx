@@ -9,12 +9,6 @@ interface DocumentStatus {
   chunks_count: number;
 }
 
-interface YouTubeUploadResponse {
-  message: string;
-  chunks_count: number;
-  url: string;
-  summary: string;
-}
 
 export default function Chat() {
   const [messages, setMessages] = useState<Array<{ role: string; content: string }>>([]);
@@ -25,7 +19,6 @@ export default function Chat() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [pdfStatus, setPdfStatus] = useState<DocumentStatus>({ pdf_uploaded: false, chunks_count: 0 });
-  const [youtubeUrl, setYoutubeUrl] = useState('');
   const [appendContext, setAppendContext] = useState(false);
   const [hasUploadedInSession, setHasUploadedInSession] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -82,73 +75,6 @@ export default function Chat() {
     }
   };
 
-  const handleUploadYoutube = async () => {
-    if (!youtubeUrl || !apiKey.trim()) {
-      setError('Please enter a YouTube URL and your API key.');
-      return;
-    }
-
-    // Validate YouTube URL format
-    try {
-      const url = new URL(youtubeUrl);
-      if (!url.hostname.includes('youtube.com') && !url.hostname.includes('youtu.be')) {
-        setError('Please enter a valid YouTube URL');
-        return;
-      }
-    } catch (e) {
-      setError('Please enter a valid URL');
-      return;
-    }
-
-    setIsUploading(true);
-    setError(null);
-
-    try {
-      console.log('Processing YouTube URL:', `${API_URL}/api/upload-youtube`);
-      const response = await fetch(`${API_URL}/api/upload-youtube`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          url: youtubeUrl,
-          api_key: apiKey,
-          options: {
-            append_context: appendContext
-          },
-        }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('YouTube Upload Error:', response.status, errorText);
-        throw new Error(`Upload Error: ${response.status} ${errorText}`);
-      }
-
-      const result: YouTubeUploadResponse = await response.json();
-      console.log('Upload successful:', result);
-      
-      // Update status
-      setPdfStatus({ pdf_uploaded: true, chunks_count: result.chunks_count });
-      setHasUploadedInSession(true);
-      
-      // Clear the URL input
-      setYoutubeUrl('');
-      
-      // Add success message and summary to chat
-      setMessages(prev => [...prev, { 
-        role: 'system', 
-        content: `Video processed successfully! Created ${result.chunks_count} text chunks.\n\nVideo Summary:\n${result.summary}\n\nYou can now ask questions about the video content.` 
-      }]);
-
-    } catch (error) {
-      console.error('Upload error:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to process YouTube video';
-      setError(errorMessage);
-    } finally {
-      setIsUploading(false);
-    }
-  };
 
   const handleUploadPdf = async () => {
     if (!selectedFile || !apiKey.trim()) {
@@ -211,7 +137,7 @@ export default function Chat() {
 
     // Check if content is uploaded for RAG functionality
     if (!pdfStatus.pdf_uploaded) {
-      setError('Please upload content (PDF or YouTube video) first to enable chat functionality.');
+      setError('Please upload a PDF document first to enable chat functionality.');
       return;
     }
 
@@ -379,64 +305,13 @@ export default function Chat() {
             )}
           </div>
 
-          {/* YouTube URL Upload */}
-          <div>
-            <h4 className="text-sm font-semibold text-purple-600 mb-2">Or Add YouTube Video URL</h4>
-            <div className="flex gap-3 items-end">
-              <div className="flex-1">
-                <input
-                  type="url"
-                  value={youtubeUrl}
-                  onChange={(e) => setYoutubeUrl(e.target.value)}
-                  placeholder="Enter YouTube video URL"
-                  className="w-full p-2 border border-purple-200 rounded focus:outline-none focus:ring-2 focus:ring-purple-400 bg-white"
-                />
-              </div>
-              <button
-                onClick={handleUploadYoutube}
-                disabled={!youtubeUrl || !apiKey || isUploading}
-                className="px-4 py-2 bg-gradient-to-r from-red-500 to-pink-500 text-white rounded font-bold shadow-md hover:from-red-600 hover:to-pink-600 focus:outline-none focus:ring-2 focus:ring-red-400 disabled:opacity-50 transition-all duration-150"
-              >
-                {isUploading ? 'Processing...' : 'Process Video'}
-              </button>
-            </div>
-            
-            {/* Context Options for YouTube - Only show when URL is entered AND content was uploaded in this session */}
-            {youtubeUrl && hasUploadedInSession && (
-              <div className="mt-3 p-3 bg-blue-50 rounded-lg">
-                <div className="text-sm font-medium text-gray-700 mb-2">How would you like to handle this content?</div>
-                <div className="flex gap-4">
-                  <label className="flex items-center">
-                    <input
-                      type="radio"
-                      name="youtubeContextOption"
-                      checked={!appendContext}
-                      onChange={() => setAppendContext(false)}
-                      className="mr-2"
-                    />
-                    <span className="text-sm">Replace existing content</span>
-                  </label>
-                  <label className="flex items-center">
-                    <input
-                      type="radio"
-                      name="youtubeContextOption"
-                      checked={appendContext}
-                      onChange={() => setAppendContext(true)}
-                      className="mr-2"
-                    />
-                    <span className="text-sm">Add to existing content</span>
-                  </label>
-                </div>
-              </div>
-            )}
-          </div>
         </div>
 
         {/* Chat Messages */}
         <div className="h-[400px] overflow-y-auto mb-6 p-4 bg-gradient-to-br from-blue-50 to-purple-50 rounded-lg border border-blue-100 shadow-inner">
           {messages.length === 0 && (
             <div className="text-center text-gray-400 mt-32">
-              Upload a research paper or add a YouTube video URL to start exploring!
+              Upload a research paper to start exploring!
             </div>
           )}
           {messages.map((message, index) => (
@@ -465,7 +340,7 @@ export default function Chat() {
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={pdfStatus.pdf_uploaded ? "Ask about methodology, references, pros/cons, or any aspect of the content..." : "Upload a research paper or YouTube video to start analyzing"}
+            placeholder={pdfStatus.pdf_uploaded ? "Ask about methodology, references, pros/cons, or any aspect of the content..." : "Upload a research paper to start analyzing"}
             className="flex-1 p-3 border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white placeholder:text-blue-300"
             disabled={isLoading || !pdfStatus.pdf_uploaded}
           />

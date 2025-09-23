@@ -18,7 +18,6 @@ import traceback
 # Add the parent directory to sys.path to import aimakerspace
 sys.path.append(str(Path(__file__).parent.parent))
 from aimakerspace.text_utils import PDFLoader, CharacterTextSplitter
-from aimakerspace.video_utils import VideoLoader
 from aimakerspace.vectordatabase import VectorDatabase
 from aimakerspace.openai_utils.embedding import EmbeddingModel
 from aimakerspace.openai_utils.chatmodel import ChatOpenAI
@@ -68,11 +67,6 @@ class ChatRequest(BaseModel):
 class DocumentUploadOptions(BaseModel):
     append_context: bool  # Whether to append to existing context or start fresh
 
-# Define the data model for YouTube URL upload
-class YouTubeRequest(BaseModel):
-    url: HttpUrl          # YouTube video URL
-    api_key: str          # OpenAI API key for authentication
-    options: DocumentUploadOptions  # Upload options
 
 # Define the data model for RAG chat requests
 class RAGChatRequest(BaseModel):
@@ -80,91 +74,6 @@ class RAGChatRequest(BaseModel):
     model: Optional[str] = "gpt-4o-mini"  # OpenAI model to use
     api_key: str          # OpenAI API key for authentication
     k: Optional[int] = 8   # Number of relevant chunks to retrieve
-
-# YouTube URL upload endpoint
-@app.post("/api/upload-youtube")
-async def upload_youtube(request: YouTubeRequest):
-    """Process a YouTube video URL for RAG system."""
-    global vector_db, document_chunks, pdf_uploaded
-    
-    try:
-        logger.info(f"Received YouTube URL: {request.url}")
-        
-        # Validate API key
-        if not request.api_key:
-            raise HTTPException(status_code=400, detail="API key is required")
-        
-        # Set the API key for the aimakerspace library
-        os.environ["OPENAI_API_KEY"] = request.api_key
-        
-        try:
-            # Process YouTube video
-            logger.info("Loading video content...")
-            video_loader = VideoLoader(str(request.url))
-            video_loader.load_url()
-            
-            if not video_loader.documents:
-                raise HTTPException(status_code=400, detail="Could not extract text from video")
-            
-            # Split text into chunks
-            logger.info("Splitting text into chunks...")
-            text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-            new_chunks = text_splitter.split_texts(video_loader.documents)
-            
-            if not new_chunks:
-                raise HTTPException(status_code=400, detail="No text chunks could be created from video")
-            
-            # Add source information to each chunk
-            source_prefix = f"[Source: YouTube - {request.url}]\n"
-            new_chunks_with_source = [source_prefix + chunk for chunk in new_chunks]
-            
-            # Handle append vs replace
-            if request.options.append_context and document_chunks:
-                document_chunks.extend(new_chunks_with_source)
-            else:
-                document_chunks = new_chunks_with_source
-            
-            # Create vector database and embeddings
-            logger.info(f"Creating embeddings for {len(document_chunks)} chunks...")
-            embedding_model = EmbeddingModel()
-            vector_db = VectorDatabase(embedding_model)
-            vector_db = await vector_db.abuild_from_list(document_chunks)
-            
-            # Generate a summary using the video chunks only
-            logger.info("Generating video summary...")
-            chat_model = ChatOpenAI(model_name="gpt-4o-mini")
-            summary_prompt = f"""Provide a concise summary of this video in no more than 100 words. Focus on the key points and main message.
-
-            Video transcript:
-            {' '.join(new_chunks_with_source[:5])}
-            """
-            summary_messages = [
-                {"role": "system", "content": "You are a helpful assistant that provides concise video summaries. Always stay within the specified word limit."},
-                {"role": "user", "content": summary_prompt}
-            ]
-            summary_response = chat_model.run(summary_messages)
-            
-            pdf_uploaded = True
-            
-            logger.info(f"Successfully processed video with {len(document_chunks)} chunks")
-            return {
-                "message": f"Video processed successfully. Here's a summary:\n{summary_response}",
-                "chunks_count": len(document_chunks),
-                "url": str(request.url),
-                "summary": summary_response
-            }
-            
-        except Exception as e:
-            error_msg = f"Error processing video: {str(e)}"
-            logger.error(error_msg)
-            raise HTTPException(status_code=500, detail=error_msg)
-            
-    except HTTPException:
-        raise
-    except Exception as e:
-        error_msg = f"Error processing video: {str(e)}\n{traceback.format_exc()}"
-        logger.error(error_msg)
-        raise HTTPException(status_code=500, detail=f"Error processing video: {str(e)}")
 
 # PDF upload endpoint for RAG system
 @app.post("/api/upload-pdf")
@@ -269,7 +178,7 @@ async def upload_pdf(
 # RAG-enabled chat endpoint
 @app.post("/api/rag-chat-mixed-media")
 async def rag_chat(request: RAGChatRequest):
-    """Chat endpoint that uses uploaded mixed media (PDFs, YouTube videos) as context."""
+    """Chat endpoint that uses uploaded PDFs as context."""
     global vector_db, document_chunks, pdf_uploaded
     
     try:
@@ -279,7 +188,7 @@ async def rag_chat(request: RAGChatRequest):
         if not pdf_uploaded or not vector_db:
             raise HTTPException(
                 status_code=400, 
-                detail="No PDF has been uploaded. Please upload a PDF first."
+                detail="No document has been uploaded. Please upload a PDF first."
             )
         
         # Set the API key for the aimakerspace library
@@ -314,14 +223,14 @@ async def rag_chat(request: RAGChatRequest):
         context = "\n\n".join(relevant_chunks)
         
         # Create simple system message for all questions
-        system_message = f"""You are a helpful assistant that answers questions based ONLY on the provided context from uploaded content (PDFs and YouTube videos). 
+        system_message = f"""You are a helpful assistant that answers questions based ONLY on the provided context from uploaded PDF documents. 
 
 Context from uploaded content:
 {context}
 
 Instructions:
 - Answer the user's question using ONLY the information provided in the context above
-- The context may include content from multiple sources (documents and videos) - each source is labeled
+- The context may include content from multiple PDF documents - each source is labeled
 - If the answer cannot be found in the context, say "I cannot find information about that in the provided content"
 - Do not use any external knowledge beyond what's in the context
 - Be direct and informative in your responses"""
