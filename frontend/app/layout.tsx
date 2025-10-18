@@ -2,8 +2,8 @@ import './globals.css';
 import { ReactNode } from 'react';
 
 export const metadata = {
-  title: 'RAG Chat with PDF',
-  description: 'A RAG-enabled chat interface that lets you upload PDFs and ask questions about them',
+  title: 'HandyAssist - AI Appliance Assistant',
+  description: 'Your AI-powered assistant for appliance manuals. Ask questions and get instant answers about how to use, maintain, and troubleshoot your appliances.',
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

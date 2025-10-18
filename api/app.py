@@ -21,6 +21,9 @@ from aimakerspace.text_utils import PDFLoader, CharacterTextSplitter
 from aimakerspace.vectordatabase import VectorDatabase
 from aimakerspace.openai_utils.embedding import EmbeddingModel
 from aimakerspace.openai_utils.chatmodel import ChatOpenAI
+from tools.tools import initialize_tools, retrieve_information, tavily_tool
+from agents.rag_agent import create_rag_agent
+from langchain_core.messages import HumanMessage
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -29,11 +32,37 @@ logger = logging.getLogger(__name__)
 # Initialize FastAPI application with a title
 app = FastAPI(title="RAG-Enabled Chat API")
 
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize tools and agent on application startup."""
+    global rag_agent
+    
+    try:
+        # Check if data directory exists
+        data_dir = Path(__file__).parent / "data"
+        if data_dir.exists():
+            logger.info("Initializing RAG tools from data directory...")
+            initialize_tools(str(data_dir))
+            logger.info("Tools initialized successfully")
+            
+            # Create the RAG agent with tools
+            logger.info("Creating RAG agent...")
+            rag_agent = create_rag_agent(model_name="gpt-4o-mini", temperature=0.0)
+            logger.info("RAG agent created successfully")
+        else:
+            logger.warning(f"Data directory not found at {data_dir}. Tools and agent will not be available.")
+    except Exception as e:
+        logger.error(f"Failed to initialize tools/agent: {e}")
+        # Don't fail startup, just log the error
+
+
 # Global variables for RAG system
 vector_db: Optional[VectorDatabase] = None
 document_chunks: List[str] = []
 document_sources: List[str] = []  # Track sources of chunks
 pdf_uploaded = False
+rag_agent = None  # LangGraph agent with tools
 
 # Get allowed origins from environment variable or use defaults
 ALLOWED_ORIGINS = os.getenv(
@@ -175,85 +204,54 @@ async def upload_pdf(
         logger.error(error_msg)
         raise HTTPException(status_code=500, detail=f"Error processing PDF: {str(e)}")
 
-# RAG-enabled chat endpoint
+# RAG-enabled chat endpoint powered by agent
 @app.post("/api/rag-chat-mixed-media")
 async def rag_chat(request: RAGChatRequest):
-    """Chat endpoint that uses uploaded PDFs as context."""
-    global vector_db, document_chunks, pdf_uploaded
+    """Chat endpoint powered by RAG agent with retrieve_information and tavily_tool."""
+    global rag_agent
     
     try:
-        logger.info(f"Received RAG chat request: {request.user_message[:100]}...")
+        logger.info(f"Received agent chat request: {request.user_message[:100]}...")
         
-        # Check if PDF has been uploaded
-        if not pdf_uploaded or not vector_db:
+        # Check if agent is initialized
+        if not rag_agent:
             raise HTTPException(
-                status_code=400, 
-                detail="No document has been uploaded. Please upload a PDF first."
+                status_code=503,
+                detail="Agent not initialized. Please ensure data directory with PDFs exists and restart the server."
             )
         
-        # Set the API key for the aimakerspace library
+        # Set the API key for OpenAI
         os.environ["OPENAI_API_KEY"] = request.api_key
-        
-        # Use a consistent k value for all queries - keep it simple
-        k = request.k  # Default is now 8, which should work well for most questions
-        logger.info(f"Using k={k} chunks for search")
-        
-        # Retrieve relevant chunks from vector database
-        logger.info(f"Searching for relevant context with k={k}...")
-        relevant_chunks = vector_db.search_by_text(
-            request.user_message, 
-            k=k, 
-            return_as_text=True
-        )
-        
-        if not relevant_chunks:
-            # Fallback: use first few chunks if no relevant chunks found
-            logger.warning("No relevant chunks found, using fallback strategy with first 5 chunks")
-            relevant_chunks = document_chunks[:5] if len(document_chunks) >= 5 else document_chunks
-        
-        # If still no chunks, try with a more general search
-        if not relevant_chunks and document_chunks:
-            logger.warning("Using all available chunks as last resort")
-            relevant_chunks = document_chunks[:8]  # Use first 8 chunks
-        
-        if not relevant_chunks:
-            raise HTTPException(status_code=500, detail="Could not retrieve relevant context")
-        
-        # Combine relevant chunks into context
-        context = "\n\n".join(relevant_chunks)
-        
-        # Create simple system message for all questions
-        system_message = f"""You are a helpful assistant that answers questions based ONLY on the provided context from uploaded PDF documents. 
-
-Context from uploaded content:
-{context}
-
-Instructions:
-- Answer the user's question using ONLY the information provided in the context above
-- The context may include content from multiple PDF documents - each source is labeled
-- If the answer cannot be found in the context, say "I cannot find information about that in the provided content"
-- Do not use any external knowledge beyond what's in the context
-- Be direct and informative in your responses"""
-
-        # Initialize ChatOpenAI and create streaming response
-        chat_model = ChatOpenAI(model_name=request.model)
         
         # Create an async generator function for streaming responses
         async def generate():
             try:
-                logger.info("Starting RAG chat completion request")
+                logger.info("Invoking RAG agent...")
                 
-                messages = [
-                    {"role": "system", "content": system_message},
-                    {"role": "user", "content": request.user_message}
-                ]
+                # Import system message and handyman prompt
+                from langchain_core.messages import SystemMessage
+                from agents.rag_agent import HANDYMAN_SYSTEM_PROMPT
                 
-                # Use the astream method for streaming
-                async for chunk in chat_model.astream(messages):
-                    yield chunk
+                # Invoke the agent with system prompt and user's message
+                result = rag_agent.invoke({
+                    "messages": [
+                        SystemMessage(content=HANDYMAN_SYSTEM_PROMPT),
+                        HumanMessage(content=request.user_message)
+                    ]
+                })
+                
+                # Extract the final response from the agent
+                final_message = result["messages"][-1].content
+                
+                logger.info("Agent response generated successfully")
+                
+                # Stream the response character by character for smooth UX
+                for char in final_message:
+                    yield char
+                    await asyncio.sleep(0.01)  # Small delay for streaming effect
                         
             except Exception as e:
-                error_msg = f"Error in RAG generate: {str(e)}\n{traceback.format_exc()}"
+                error_msg = f"Error in agent generate: {str(e)}\n{traceback.format_exc()}"
                 logger.error(error_msg)
                 yield f"Error: {str(e)}"
 
@@ -263,7 +261,7 @@ Instructions:
     except HTTPException:
         raise
     except Exception as e:
-        error_msg = f"Error in RAG chat endpoint: {str(e)}\n{traceback.format_exc()}"
+        error_msg = f"Error in agent chat endpoint: {str(e)}\n{traceback.format_exc()}"
         logger.error(error_msg)
         raise HTTPException(status_code=500, detail=str(e))
 

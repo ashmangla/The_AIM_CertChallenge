@@ -28,21 +28,27 @@ export default function Home() {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-4">
       <div className="w-full max-w-2xl bg-white/80 backdrop-blur-md rounded-2xl shadow-2xl p-8 border border-blue-100">
-        <h1 className="text-4xl font-bold text-blue-700 mb-6">Paper Summarizer & Analyzer</h1>
+        <div className="mb-6">
+          <h1 className="text-5xl font-bold text-blue-700 mb-2">🔧 HandyAssist</h1>
+          <p className="text-gray-600 text-lg">Your AI-Powered Appliance Manual Assistant</p>
+        </div>
         
         <div className="mb-8">
           <div className="flex items-center gap-2 mb-2">
-            <span className="text-gray-600">API Status:</span>
+            <span className="text-gray-600">Agent Status:</span>
             <span className={`px-2 py-1 rounded text-sm ${
               apiStatus === 'loading' ? 'bg-yellow-100 text-yellow-800' :
               apiStatus === 'healthy' ? 'bg-green-100 text-green-800' :
               'bg-red-100 text-red-800'
             }`}>
-              {apiStatus === 'loading' ? 'Checking...' :
-               apiStatus === 'healthy' ? 'Healthy' :
-               'Error'}
+              {apiStatus === 'loading' ? 'Initializing...' :
+               apiStatus === 'healthy' ? 'Ready to Help' :
+               'Offline'}
             </span>
           </div>
+          <p className="text-sm text-gray-500 mt-2">
+            Ask questions about your appliances and get instant answers from manuals
+          </p>
         </div>
 
         <div className="space-y-4">
@@ -50,7 +56,7 @@ export default function Home() {
             href="/chat"
             className="block w-full p-4 text-center bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-lg font-bold shadow-md hover:from-blue-600 hover:to-purple-600 transition-all duration-150"
           >
-            Start Analyzing
+            Start Chatting with HandyAssist
           </Link>
           
           <Link
