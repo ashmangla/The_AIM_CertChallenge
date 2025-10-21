@@ -164,3 +164,4 @@ cython_debug/
 #.idea/
 .vercel
 node_modules
+api/evaluate_rag/golden_dataset/usecase_data_kg.json

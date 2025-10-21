@@ -116,7 +116,7 @@ def initialize_tools(data_directory: str = "data") -> None:
     # Split documents into chunks
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=750,
-        chunk_overlap=0,
+        chunk_overlap=50,
         length_function=tiktoken_len,
     )
     appliance_chunks = text_splitter.split_documents(appliance_manuals)
