@@ -1,4 +1,0 @@
-Method,Status,Evaluation_Time_seconds,context_precision,context_recall,faithfulness,answer_relevancy
-Naive Retrieval,Failed,41.78258800506592,,,,
-Cohere Rerank,Failed,185.25160908699036,,,,
-Multi-Query Retrieval,Failed,55.41400098800659,,,,

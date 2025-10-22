@@ -58,7 +58,12 @@ HUMAN_TEMPLATE = """
 QUERY:
 {query}
 
-Use the provided context to answer the provided user query. Only use the provided context to answer the query. If you do not know the answer, or it's not contained in the provided context respond with "I don't know"
+Use the provided context to answer the provided user query. Only use the provided context to answer the query.
+
+IMPORTANT: 
+- Always cite the page numbers from the manual where you found the information
+- Format page citations as: [Source: Manual, Page X] or [Source: Manual, Pages X-Y]
+- If you do not know the answer, or it's not contained in the provided context respond with "I don't know"
 """
 
 
@@ -226,11 +231,21 @@ def initialize_tools(data_directory: str = "data", force_reinit: bool = False) -
         return {"context": retrieved_docs}
     
     def generate(state: State) -> dict:
-        """Generate response using retrieved context."""
+        """Generate response using retrieved context with page numbers."""
+        # Format context with page numbers
+        formatted_context = []
+        for doc in state["context"]:
+            page_num = doc.metadata.get('page', 'Unknown')
+            # Add 1 to page number since PyMuPDF uses 0-based indexing
+            display_page = page_num + 1 if isinstance(page_num, int) else page_num
+            formatted_context.append(f"[Page {display_page}]: {doc.page_content}")
+        
+        context_str = "\n\n".join(formatted_context)
+        
         generator_chain = chat_prompt | generator_llm | StrOutputParser()
         response = generator_chain.invoke({
             "query": state["question"],
-            "context": state["context"]
+            "context": context_str
         })
         return {"response": response}
     
