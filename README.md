@@ -84,6 +84,9 @@ HandyAssist is an intelligent RAG (Retrieval Augmented Generation) agent that he
 7. **Open your browser**
    
    Navigate to `http://localhost:3000` and start chatting!
+   Sample ques : 
+   (1) how do i change the water filter, 
+   (2) can you also tell me how to turn on my airfryer generics model
 
 ## 🏗️ Architecture
 
