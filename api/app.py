@@ -15,6 +15,10 @@ from typing import Optional, List
 import logging
 import traceback
 
+# Load environment variables from .env file
+from dotenv import load_dotenv
+load_dotenv(Path(__file__).parent / ".env")
+
 # Add the parent directory to sys.path to import aimakerspace
 sys.path.append(str(Path(__file__).parent.parent))
 from aimakerspace.text_utils import PDFLoader, CharacterTextSplitter
