@@ -30,13 +30,27 @@ from operator import itemgetter
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # ============================================================================
-# CONFIGURATION - Set API keys FIRST before any other imports
+# CONFIGURATION - Load API keys from environment variables
 # ============================================================================
-OPENAI_API_KEY = ""  # Add your OpenAI API key here
-TAVILY_API_KEY = ""  # Add your Tavily API key here
-COHERE_API_KEY = ""  # Add your Cohere API key here
+# For local development: Copy api/.env.example to api/.env and fill in your keys
+# For production: Set these as environment variables in your deployment platform
 
-# Set API keys in environment BEFORE importing any LangChain/RAGAS modules
+# Load from .env file if it exists (for local development)
+from dotenv import load_dotenv
+load_dotenv(Path(__file__).parent.parent / ".env")
+
+# Get API keys from environment
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+TAVILY_API_KEY = os.getenv("TAVILY_API_KEY", "")
+COHERE_API_KEY = os.getenv("COHERE_API_KEY", "")
+
+# Validate that keys are set
+if not OPENAI_API_KEY:
+    raise ValueError("OPENAI_API_KEY not found in environment. Please set it in .env file or environment variables.")
+if not COHERE_API_KEY:
+    print("⚠️  WARNING: COHERE_API_KEY not set. Cohere Rerank evaluation will be skipped.")
+
+# Set API keys in environment (for LangChain/RAGAS modules)
 os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
 os.environ["COHERE_API_KEY"] = COHERE_API_KEY
 os.environ["TAVILY_API_KEY"] = TAVILY_API_KEY

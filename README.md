@@ -29,32 +29,24 @@ HandyAssist is an intelligent RAG (Retrieval Augmented Generation) agent that he
 
 ### Installation
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/<YOUR_USERNAME>/The_AIM_CertChallenge.git
-   cd The_AIM_CertChallenge
-   ```
-
-2. **Install Python dependencies**
-     ```bash
-   pip install -r requirements.txt
-   ```
-
-3. **Install frontend dependencies**
-     ```bash
-   cd frontend
-   npm install
-   cd ..
-   ```
-
-4. **Configure API keys**
+4. **Configure API keys** ⚠️ **IMPORTANT - Security First!**
    
-   Add your API keys to `api/tools/tools.py`:
-   ```python
-   OPENAI_API_KEY = "your-openai-key-here"
-   TAVILY_API_KEY = "your-tavily-key-here"
-   COHERE_API_KEY = "your-cohere-key-here"
+   ```bash
+   cd api
+   cp .env.example .env
    ```
+   
+   Then edit `api/.env` and add your actual API keys:
+   ```bash
+   OPENAI_API_KEY=your_openai_key_here
+   TAVILY_API_KEY=your_tavily_key_here
+   COHERE_API_KEY=your_cohere_key_here
+   ```
+   
+   **Security Notes**:
+   - ✅ `.env` is already in `.gitignore` - it will **never** be committed to Git
+   - ✅ For production deployments, set these as environment variables in your hosting platform
+   - ❌ **Never** hardcode API keys in source files or commit them to Git
 
 5. **Add your appliance manuals**
    
@@ -172,7 +164,7 @@ This will:
 
 ### Language Filtering
 
-By default, only English documents are used. Modify `evaluate.py`:
+By default, only English documents are used.
 
 ```python
 docs, rag_documents = load_and_prepare_documents(

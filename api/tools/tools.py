@@ -11,16 +11,20 @@ from __future__ import annotations
 
 import logging
 import os
+import time
 from typing import Annotated, List
 
 import tiktoken
 
 # ============================================================================
-# CONFIGURATION - Add your API keys here
+# CONFIGURATION - API Keys (loaded from environment variables)
 # ============================================================================
-OPENAI_API_KEY = ""  # Add your OpenAI API key here
-TAVILY_API_KEY = ""  # Add your Tavily API key here
-COHERE_API_KEY = ""  # Add your Cohere API key here (for Cohere Rerank)
+# Load API keys from environment variables (.env file)
+# For local development: Copy api/.env.example to api/.env and fill in your keys
+# For production: Set these as environment variables in your deployment platform
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+TAVILY_API_KEY = os.getenv("TAVILY_API_KEY", "")
+COHERE_API_KEY = os.getenv("COHERE_API_KEY", "")
 # ============================================================================
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_experimental.text_splitter import SemanticChunker
@@ -78,7 +82,7 @@ def tiktoken_len(text: str) -> int:
     return len(tokens)
 
 
-def initialize_tools(data_directory: str = "data") -> None:
+def initialize_tools(data_directory: str = "data", force_reinit: bool = False) -> None:
     """Initialize the RAG pipeline and tools.
     
     This function loads documents from the specified directory, creates embeddings,
@@ -87,6 +91,7 @@ def initialize_tools(data_directory: str = "data") -> None:
     
     Args:
         data_directory: Path to directory containing PDF documents
+        force_reinit: If True, re-initialize even if already initialized (for dynamic re-indexing)
         
     Raises:
         FileNotFoundError: If the data directory doesn't exist
@@ -94,7 +99,7 @@ def initialize_tools(data_directory: str = "data") -> None:
     """
     global _compiled_rag_graph, _is_initialized
     
-    if _is_initialized:
+    if _is_initialized and not force_reinit:
         logger.warning("Tools already initialized. Skipping re-initialization.")
         return
     
@@ -238,6 +243,28 @@ def initialize_tools(data_directory: str = "data") -> None:
     logger.info("Tools initialized successfully")
 
 
+def re_index_manuals(data_directory: str = "data") -> str:
+    """Re-index all manuals in the data directory with the current best chunking strategy.
+    
+    This function is called after downloading a new manual to dynamically update
+    the vector store without restarting the server. It uses the same chunking
+    strategy (from config/retrieval_config.json) to maintain consistency.
+    
+    Args:
+        data_directory: Path to directory containing PDF documents
+        
+    Returns:
+        Status message indicating success or failure
+    """
+    try:
+        logger.info("🔄 Re-indexing all manuals with winning chunking strategy...")
+        initialize_tools(data_directory=data_directory, force_reinit=True)
+        return "✅ Re-indexing complete! All manuals (including new ones) are now searchable."
+    except Exception as e:
+        logger.error(f"❌ Re-indexing failed: {e}")
+        return f"❌ Re-indexing failed: {str(e)}"
+
+
 @tool
 def retrieve_information(
     query: Annotated[str, "Query to search in the appliance manuals"]
@@ -265,33 +292,161 @@ def retrieve_information(
     return _compiled_rag_graph.invoke({"question": query})
 
 
-# Initialize Tavily search tool with max 5 results (optional)
-# Uses TAVILY_API_KEY from configuration section above or environment variable
-try:
-    # Check configuration variable first, then environment variable
-    api_key = TAVILY_API_KEY or os.getenv("TAVILY_API_KEY")
+@tool
+def tavily_tool(
+    query: Annotated[str, "Search query for finding appliance manuals or troubleshooting information"]
+) -> str:
+    """Search the web for appliance manuals or troubleshooting information using Tavily.
     
-    if api_key:
-        # Set the environment variable so TavilySearchResults can find it
-        os.environ["TAVILY_API_KEY"] = api_key
-        tavily_tool = TavilySearchResults(max_results=5)
-        logger.info("Tavily search tool initialized successfully")
-    else:
-        # Create a dummy tool if Tavily API key is not available
-        @tool
-        def tavily_tool(query: str) -> str:
-            """Placeholder for Tavily search - API key not configured."""
-            return "Tavily search is not available. Please add your API key to the TAVILY_API_KEY variable in tools/tools.py"
-        logger.warning("Tavily API key not found. Tavily search tool will not be available.")
-except Exception as e:
-    logger.warning(f"Failed to initialize Tavily tool: {e}. Creating placeholder.")
-    @tool
-    def tavily_tool(query: str) -> str:
-        """Placeholder for Tavily search - initialization failed."""
-        return f"Tavily search is not available: {str(e)}"
+    This tool has two modes:
+    1. **Manual Search Mode**: If query contains appliance model/company, searches for PDF manual,
+       downloads it, and triggers re-indexing for future RAG queries.
+    2. **Web Search Mode**: For general troubleshooting, returns relevant web results with citations.
+    
+    Args:
+        query: Search query (e.g., "GE refrigerator GNE27JSMSS manual" or "how to fix ice maker")
+        
+    Returns:
+        String with search results, download status, or troubleshooting information with citations
+    """
+    import re
+    import requests
+    from pathlib import Path
+    
+    # Check if Tavily API key is available
+    api_key = TAVILY_API_KEY or os.getenv("TAVILY_API_KEY")
+    if not api_key:
+        return "⚠️ Tavily search is not available. Please configure TAVILY_API_KEY."
+    
+    # Initialize Tavily search
+    os.environ["TAVILY_API_KEY"] = api_key
+    search_tool = TavilySearchResults(max_results=5)
+    
+    logger.info(f"🔍 Tavily search for: {query}")
+    
+    # Determine if this is a manual search query (contains "manual" or model patterns)
+    is_manual_search = bool(
+        re.search(r'\bmanual\b', query, re.IGNORECASE) or
+        re.search(r'\b[A-Z]{2,}\s*[-\s]?\d+\w+', query)  # Model number pattern
+    )
+    
+    try:
+        # Perform Tavily search
+        search_results = search_tool.invoke({"query": query})
+        
+        if not search_results:
+            return "❌ No results found. Please try a different search query."
+        
+        # Mode 1: Manual Download (if manual-related query)
+        if is_manual_search:
+            logger.info("📚 Manual search mode activated")
+            
+            # Look for PDF links in results
+            pdf_links = []
+            for result in search_results:
+                url = result.get('url', '')
+                if url.lower().endswith('.pdf'):
+                    pdf_links.append({
+                        'url': url,
+                        'title': result.get('content', 'Manual')[:100]
+                    })
+            
+            if pdf_links:
+                # Try to download the first PDF
+                pdf_url = pdf_links[0]['url']
+                logger.info(f"📥 Attempting to download manual from: {pdf_url}")
+                
+                try:
+                    response = requests.get(pdf_url, timeout=30, stream=True)
+                    response.raise_for_status()
+                    
+                    # Save to data directory
+                    data_dir = Path(__file__).parent.parent / "data"
+                    data_dir.mkdir(exist_ok=True)
+                    
+                    # Create filename from URL or use timestamp
+                    filename = pdf_url.split('/')[-1]
+                    if not filename.endswith('.pdf'):
+                        filename = f"manual_{int(time.time())}.pdf"
+                    
+                    filepath = data_dir / filename
+                    
+                    # Download PDF
+                    with open(filepath, 'wb') as f:
+                        for chunk in response.iter_content(chunk_size=8192):
+                            f.write(chunk)
+                    
+                    logger.info(f"✅ Manual downloaded successfully: {filepath}")
+                    
+                    # Automatically re-index all manuals with the same chunking strategy
+                    # This maintains consistency - all manuals use the winning strategy
+                    # (Semantic Chunking + Cohere Rerank from config/retrieval_config.json)
+                    logger.info("🔄 Starting automatic re-indexing...")
+                    reindex_result = re_index_manuals(str(data_dir))
+                    
+                    return f"""✅ **Manual Downloaded & Indexed Successfully!**
+
+📄 **File**: {filename}
+📥 **Saved to**: `{filepath}`
+🔗 **Source**: {pdf_url}
+
+🔄 **Auto-Indexing**: {reindex_result}
+
+✅ **Ready to Use!** You can now ask questions about this manual using retrieve_information.
+No restart needed - the manual is immediately searchable with the same optimized chunking strategy (Semantic Chunking + Cohere Rerank) as your existing manuals.
+"""
+                
+                except requests.exceptions.RequestException as e:
+                    logger.error(f"❌ Failed to download manual: {e}")
+                    return f"""⚠️ **Manual Found But Download Failed**
+
+🔗 **Manual URL**: {pdf_url}
+❌ **Error**: {str(e)}
+
+**Please download manually from the link above and place it in the `api/data/` directory.**
+"""
+            
+            else:
+                # No PDF found, switch to Mode 2 (Web Search) to answer the question
+                logger.info("📄 No PDF manual found, switching to Mode 2: Web search")
+                
+                result_text = "⚠️ **Manual Not Found** - I couldn't find a downloadable PDF manual for this appliance.\n\n"
+                result_text += "🔍 **Searching the web for troubleshooting information instead:**\n\n"
+                
+                # Provide web search results with citations (Mode 2 behavior)
+                for i, result in enumerate(search_results[:3], 1):
+                    url = result.get('url', 'Unknown source')
+                    content = result.get('content', 'No description')
+                    
+                    result_text += f"{i}. **Source**: [{url}]({url})\n"
+                    result_text += f"   {content[:300]}...\n\n"
+                
+                result_text += "\n💡 **Note**: Since I don't have the official manual, these results are from general web sources. For precise model-specific instructions, please provide the exact model number so I can search for the official manual."
+                
+                return result_text
+        
+        # Mode 2: Web Search (for troubleshooting questions)
+        else:
+            logger.info("🌐 Web search mode activated (troubleshooting)")
+            
+            result_text = "🔧 **Troubleshooting Information**:\n\n"
+            for i, result in enumerate(search_results[:3], 1):
+                url = result.get('url', 'Unknown source')
+                content = result.get('content', 'No description')
+                
+                result_text += f"{i}. **Source**: [{url}]({url})\n"
+                result_text += f"   {content[:300]}...\n\n"
+            
+            result_text += "\n📌 **Note**: This information is sourced from the web. For appliance-specific guidance, please provide your model number so I can search for the official manual."
+            
+            return result_text
+    
+    except Exception as e:
+        logger.error(f"❌ Tavily search error: {e}")
+        return f"❌ Search failed: {str(e)}"
 
 
-__all__ = ["initialize_tools", "retrieve_information", "tavily_tool"]
+__all__ = ["initialize_tools", "re_index_manuals", "retrieve_information", "tavily_tool"]
 
 
 
