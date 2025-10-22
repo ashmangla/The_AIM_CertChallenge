@@ -1,14 +1,14 @@
 {
-  "best_retriever": "Multi-Query Retrieval",
-  "average_score": 0.7159900079684544,
+  "best_retriever": "Semantic + Cohere Rerank",
+  "average_score": 0.8251766360730225,
   "metrics": {
-    "context_precision": 0.43312008592165835,
-    "context_recall": 0.8083333333333332,
-    "faithfulness": 0.8791407867494824,
-    "answer_relevancy": 0.9772671198604876,
-    "answer_correctness": 0.7474020632475528,
+    "context_precision": 0.9999999999638889,
+    "context_recall": 1.0,
+    "faithfulness": 0.8787037037037037,
+    "answer_relevancy": 0.9685098988005022,
+    "answer_correctness": 0.929022850043063,
     "coherence": 1.0,
-    "conciseness": 0.16666666666666666
+    "conciseness": 0.0
   },
-  "timestamp": "2025-10-21T11:39:00.974362"
+  "timestamp": "2025-10-21T15:41:45.919044"
 }

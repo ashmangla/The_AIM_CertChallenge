@@ -12,6 +12,7 @@ langchain-community>=0.3.0
 langchain-core>=0.3.0
 langchain-openai>=0.2.0
 langchain-experimental>=0.3.0
+langchain-cohere>=0.3.0
 pymupdf>=1.26.0
 tavily-python>=0.7.0
 qdrant-client>=1.14.0

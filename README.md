@@ -1,186 +1,322 @@
-<p align = "center" draggable=”false” ><img src="https://github.com/AI-Maker-Space/LLM-Dev-101/assets/37101144/d1343317-fa2f-41e1-8af1-1dbb18399719" 
+<p align = "center" draggable="false" ><img src="https://github.com/AI-Maker-Space/LLM-Dev-101/assets/37101144/d1343317-fa2f-41e1-8af1-1dbb18399719" 
      width="200px"
      height="auto"/>
 </p>
 
+# 🔧 HandyAssist - Your AI-Powered Appliance Manual Assistant
 
-## <h1 align="center" id="heading"> 👋 Welcome to the AI Engineer Challenge</h1>
+> **Smart, context-aware help for all your appliance questions!**
 
-## 🤖 Your First Vibe Coding LLM Application
+HandyAssist is an intelligent RAG (Retrieval Augmented Generation) agent that helps homeowners get instant answers from their appliance manuals. No more digging through PDF manuals or confusing diagrams - just ask a question and get clear, step-by-step instructions!
 
-> If you are a novice, and need a bit more help to get your dev environment off the ground, check out this [Setup Guide](docs/GIT_SETUP.md). This guide will walk you through the 'git' setup you need to get started.
+## 🌟 What Makes HandyAssist Special?
 
-> For additional context on LLM development environments and API key setup, you can also check out our [Interactive Dev Environment for LLM Development](https://github.com/AI-Maker-Space/Interactive-Dev-Environment-for-AI-Engineers).
+- **🧠 Context-Aware Intelligence**: The agent knows what manuals it has and only asks for details when needed
+- **📊 Data-Driven Optimization**: Uses RAGAS evaluation to automatically select the best retrieval strategy
+- **🎯 Production-Ready**: Semantic chunking + Cohere reranking for superior answer quality
+- **🔍 Smart Retrieval**: Automatically searches existing manuals first, then helps find new ones via web search
+- **💬 Natural Conversation**: Designed for everyday homeowners, not technicians
 
-In this repository, we'll walk you through the steps to create a LLM (Large Language Model) powered application with a vibe-coded frontend!
+## 🚀 Quick Start
 
-Are you ready? Let's get started!
+### Prerequisites
 
-<details>
-  <summary>🖥️ Accessing "gpt-4.1-mini" (ChatGPT) like a developer</summary>
+- Python 3.9+
+- Node.js 16+
+- OpenAI API key
+- Tavily API key (for web search)
+- Cohere API key (for reranking)
 
-1. Head to [this notebook](https://colab.research.google.com/drive/1sT7rzY_Lb1_wS0ELI1JJfff0NUEcSD72?usp=sharing) and follow along with the instructions!
+### Installation
 
-2. Complete the notebook and try out your own system/assistant messages!
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/<YOUR_USERNAME>/The_AIM_CertChallenge.git
+   cd The_AIM_CertChallenge
+   ```
 
-That's it! Head to the next step and start building your application!
-
-</details>
-
-
-<details>
-  <summary>🏗️ Forking & Cloning This Repository</summary>
-
-Before you begin, make sure you have:
-
-1. 👤 A GitHub account (you'll need to replace `YOUR_GITHUB_USERNAME` with your actual username)
-2. 🔧 Git installed on your local machine
-3. 💻 A code editor (like Cursor, VS Code, etc.)
-4. ⌨️ Terminal access (Mac/Linux) or Command Prompt/PowerShell (Windows)
-5. 🔑 A GitHub Personal Access Token (for authentication)
-
-Got everything in place? Let's move on!
-
-1. Fork [this](https://github.com/AI-Maker-Space/The-AI-Engineer-Challenge) repo!
-
-     ![image](https://i.imgur.com/bhjySNh.png)
-
-1. Clone your newly created repo.
-
-     ``` bash
-     # First, navigate to where you want the project folder to be created
-     cd PATH_TO_DESIRED_PARENT_DIRECTORY
-
-     # Then clone (this will create a new folder called The-AI-Engineer-Challenge)
-     git clone git@github.com:<YOUR GITHUB USERNAME>/The-AI-Engineer-Challenge.git
-     ```
-
-     > Note: This command uses SSH. If you haven't set up SSH with GitHub, the command will fail. In that case, use HTTPS by replacing `git@github.com:` with `https://github.com/` - you'll then be prompted for your GitHub username and personal access token.
-
-2. Verify your git setup:
-
+2. **Install Python dependencies**
      ```bash
-     # Check that your remote is set up correctly
-     git remote -v
+   pip install -r requirements.txt
+   ```
 
-     # Check the status of your repository
-     git status
-
-     # See which branch you're on
-     git branch
-     ```
-
-     <!-- > Need more help with git? Check out our [Detailed Git Setup Guide](docs/GIT_SETUP.md) for a comprehensive walkthrough of git configuration and best practices. -->
-
-3. Open the freshly cloned repository inside Cursor!
-
+3. **Install frontend dependencies**
      ```bash
-     cd The-AI-Engineering-Challenge
-     cursor .
-     ```
+   cd frontend
+   npm install
+   cd ..
+   ```
 
-4. Check out the existing backend code found in `/api/app.py`
+4. **Configure API keys**
+   
+   Add your API keys to `api/tools/tools.py`:
+   ```python
+   OPENAI_API_KEY = "your-openai-key-here"
+   TAVILY_API_KEY = "your-tavily-key-here"
+   COHERE_API_KEY = "your-cohere-key-here"
+   ```
 
-</details>
+5. **Add your appliance manuals**
+   
+   Place PDF manuals in `api/data/` directory
 
-<details>
-  <summary>🔥Setting Up for Vibe Coding Success </summary>
+6. **Start the servers**
+   ```bash
+   # Use the convenience script (Mac/Linux)
+   bash restart-servers.sh
+   
+   # Or manually:
+   # Terminal 1 - Backend
+   cd api && uvicorn app:app --reload --port 8000
+   
+   # Terminal 2 - Frontend
+   cd frontend && npm run dev
+   ```
 
-While it is a bit counter-intuitive to set things up before jumping into vibe-coding - it's important to remember that there exists a gradient betweeen AI-Assisted Development and Vibe-Coding. We're only reaching *slightly* into AI-Assisted Development for this challenge, but it's worth it!
+7. **Open your browser**
+   
+   Navigate to `http://localhost:3000` and start chatting!
 
-1. Check out the rules in `.cursor/rules/` and add theme-ing information like colour schemes in `frontend-rule.mdc`! You can be as expressive as you'd like in these rules!
-2. We're going to index some docs to make our application more likely to succeed. To do this - we're going to start with `CTRL+SHIFT+P` (or `CMD+SHIFT+P` on Mac) and we're going to type "custom doc" into the search bar. 
+## 🏗️ Architecture
 
-     ![image](https://i.imgur.com/ILx3hZu.png)
-3. We're then going to copy and paste `https://nextjs.org/docs` into the prompt.
-
-     ![image](https://i.imgur.com/psBjpQd.png)
-
-4. We're then going to use the default configs to add these docs to our available and indexed documents.
-
-     ![image](https://i.imgur.com/LULLeaF.png)
-
-5. After that - you will do the same with Vercel's documentation. After which you should see:
-
-     ![image](https://i.imgur.com/hjyXhhC.png) 
-
-</details>
-
-<details>
-  <summary>😎 Vibe Coding a Front End for the FastAPI Backend</summary>
-
-1. Use `Command-L` or `CTRL-L` to open the Cursor chat console. 
-
-2. Set the chat settings to the following:
-
-     ![image](https://i.imgur.com/LSgRSgF.png)
-
-3. Ask Cursor to create a frontend for your application. Iterate as much as you like!
-
-4. Run the frontend using the instructions Cursor provided. 
-
-> NOTE: If you run into any errors, copy and paste them back into the Cursor chat window - and ask Cursor to fix them!
-
-> NOTE: You have been provided with a backend in the `/api` folder - please ensure your Front End integrates with it!
-
-</details>
-
-<details>
-  <summary>🚀 Deploying Your First LLM-powered Application with Vercel</summary>
-
-1. Ensure you have signed into [Vercel](https://vercel.com/) with your GitHub account.
-
-2. Ensure you have `npm` (this may have been installed in the previous vibe-coding step!) - if you need help with that, ask Cursor!
-
-3. Run the command:
-
-     ```bash
-     npm install -g vercel
-     ```
-
-4. Run the command:
-
-     ```bash
-     vercel
-     ```
-
-5. Follow the in-terminal instructions. (Below is an example of what you will see!)
-
-     ![image](https://i.imgur.com/D1iKGCq.png)
-
-6. Once the build is completed - head to the provided link and try out your app!
-
-> NOTE: Remember, if you run into any errors - ask Cursor to help you fix them!
-
-</details>
-
-### Vercel Link to Share
-
-You'll want to make sure you share you *domains* hyperlink to ensure people can access your app!
-
-![image](https://i.imgur.com/mpXIgIz.png)
-
-> NOTE: Test this is the public link by trying to open your newly deployed site in an Incognito browser tab!
-
-### 🎉 Congratulations! 
-
-You just deployed your first LLM-powered application! 🚀🚀🚀 Get on linkedin and post your results and experience! Make sure to tag us at @AIMakerspace!
-
-Here's a template to get your post started!
+### Backend (`/api`)
 
 ```
-🚀🎉 Exciting News! 🎉🚀
-
-🏗️ Today, I'm thrilled to announce that I've successfully built and shipped my first-ever LLM using the powerful combination of , and the OpenAI API! 🖥️
-
-Check it out 👇
-[LINK TO APP]
-
-A big shoutout to the @AI Makerspace for all making this possible. Couldn't have done it without the incredible community there. 🤗🙏
-
-Looking forward to building with the community! 🙌✨ Here's to many more creations ahead! 🥂🎉
-
-Who else is diving into the world of AI? Let's connect! 🌐💡
-
-#FirstLLMApp 
+api/
+├── app.py                 # FastAPI application
+├── agents/
+│   └── rag_agent.py      # LangGraph ReAct agent
+├── tools/
+│   └── tools.py          # Retrieval + Tavily search tools
+├── evaluate_rag/
+│   └── evaluate.py       # RAGAS evaluation suite
+├── config/
+│   └── retrieval_config.json  # Best retrieval config (auto-generated)
+└── data/
+    └── *.pdf             # Your appliance manuals
 ```
+
+### Frontend (`/frontend`)
+
+- **Next.js 14** with App Router
+- **Tailwind CSS** for styling
+- **Streaming responses** for real-time chat
+- **Modern, responsive UI**
+
+## 🎯 How It Works
+
+### 1. **Intelligent Agent Workflow**
+
+```
+User Question
+    ↓
+Agent checks retrieve_information tool
+    ↓
+Manual found? → Answer immediately ✅
+    ↓
+No manual? → Ask for appliance details → Use Tavily to search web
+```
+
+### 2. **Optimized RAG Pipeline**
+
+HandyAssist uses a **data-driven approach** to retrieval:
+
+1. **Evaluation**: Run `api/evaluate_rag/evaluate.py` to test different strategies
+2. **Optimization**: RAGAS scores 6 combinations (2 chunking × 3 retrieval methods)
+3. **Auto-Config**: Best config is saved to `config/retrieval_config.json`
+4. **Dynamic Loading**: `tools.py` reads config and uses winning strategy
+
+**Current Champion**: Semantic Chunking + Cohere Rerank (0.825 avg score)
+
+### 3. **RAGAS Evaluation Metrics**
+
+We evaluate on 7 metrics:
+- `context_precision`: Are retrieved chunks relevant?
+- `context_recall`: Did we retrieve all necessary info?
+- `faithfulness`: Is the answer grounded in context?
+- `answer_relevancy`: Does the answer address the question?
+- `answer_correctness`: Is the answer factually correct?
+- `coherence`: Is the answer logically consistent?
+- `conciseness`: Is the answer brief and efficient?
+
+## 📊 Running Evaluations
+
+To optimize your RAG system for your specific manuals:
+
+     ```bash
+cd api
+python evaluate_rag/evaluate.py
+```
+
+This will:
+1. Generate realistic homeowner questions (persona-driven SDG)
+2. Test all 6 chunking/retrieval combinations
+3. Evaluate with RAGAS metrics
+4. Save best config to `config/retrieval_config.json`
+5. Display results table
+
+**Next time you restart the backend, it will automatically use the winning strategy!**
+
+## 🔧 Configuration
+
+### Chunking Strategies
+
+- **Recursive**: Fixed-size chunks (750 chars, 50 overlap)
+- **Semantic**: Meaning-based boundaries (percentile breakpoint)
+
+### Retrieval Methods
+
+- **Naive**: Standard vector similarity (k=5)
+- **Cohere Rerank**: Re-ranks top 5 → best 3
+- **Multi-Query**: Generates multiple query variations
+
+### Language Filtering
+
+By default, only English documents are used. Modify `evaluate.py`:
+
+```python
+docs, rag_documents = load_and_prepare_documents(
+    language_filter='en',  # Change to None for all languages
+    chunking_strategy='semantic'
+)
+```
+
+## 🎨 Customization
+
+### Change Agent Behavior
+
+Edit `api/agents/rag_agent.py`:
+
+```python
+HANDYMAN_SYSTEM_PROMPT = """You are a handyman assistant..."""
+```
+
+### Adjust Evaluation Size
+
+Edit `api/evaluate_rag/evaluate.py`:
+
+```python
+testset_size=5  # Increase for more test questions
+```
+
+
+## 🛠️ Tech Stack
+
+### **Document Processing Layer**
+- **PDF Extraction**: PyMuPDF (`pymupdf`)
+- **Text Chunking**: 
+  - LangChain `SemanticChunker` (meaning-based boundaries)
+  - `RecursiveCharacterTextSplitter` (fixed-size with overlap)
+- **Tokenization**: `tiktoken` (OpenAI tokenizer)
+- **Language Detection**: `langdetect` (filter English-only docs)
+
+### **Embedding & Retrieval Layer**
+- **Embedding Model**: OpenAI `text-embedding-3-small`
+- **Vector Database**: Qdrant (in-memory for development)
+- **Retrieval Methods**: 
+  - **Naive**: Standard vector similarity (k=5)
+  - **Cohere Rerank**: Re-ranks top-k results for better precision
+  - **Multi-Query**: Generates query variations for better recall
+
+### **Agent & Orchestration Layer**
+- **Agent Framework**: LangGraph (ReAct pattern)
+- **LLM**: OpenAI `gpt-4o-mini` (primary reasoning engine)
+- **Tools**: 
+  - `retrieve_information` - RAG tool for manual search
+  - `tavily_tool` - Web search for unknown appliances (Tavily API)
+- **Context Management**: Dynamic system prompts with homeowner persona
+
+### **Evaluation & Optimization Layer** 🆕
+- **Evaluation Framework**: RAGAS 0.2.10
+- **Metrics** (7 total):
+  - `context_precision` - Relevance of retrieved chunks
+  - `context_recall` - Completeness of retrieval
+  - `faithfulness` - Answer grounded in context
+  - `answer_relevancy` - Addresses the question
+  - `answer_correctness` - Factual accuracy
+  - `coherence` - Logical consistency
+  - `conciseness` - Brevity and efficiency
+- **Synthetic Data Generation**: Persona-driven question generation
+- **Stratified Sampling**: Efficient document sampling for SDG
+- **Auto-Configuration**: JSON-based dynamic config loading
+
+### **Backend API**
+- **Framework**: FastAPI (Python)
+- **Validation**: Pydantic models
+- **File Handling**: `python-multipart`
+- **Environment**: `python-dotenv`
+- **Async Streaming**: `asyncio` for real-time responses
+- **CORS**: Middleware for cross-origin requests
+
+### **Frontend Layer**
+- **Framework**: Next.js 14 (App Router)
+- **UI Library**: React 18
+- **Styling**: Tailwind CSS (utility-first)
+- **Language**: TypeScript (type safety)
+- **HTTP Client**: Native `fetch` API
+
+### **Infrastructure & DevOps**
+- **Deployment**: Local development (localhost)
+- **Storage**: Local filesystem (`api/data/`)
+- **Monitoring**: RAGAS for RAG performance tracking
+- **Process Management**: Custom restart script (`restart-servers.sh`)
+- **Port Management**: Backend (8000), Frontend (3000)
+
+## 📁 Project Structure
+
+```
+The_AIM_CertChallenge/
+├── api/                          # Backend
+│   ├── app.py                   # FastAPI app
+│   ├── agents/                  # LangGraph agents
+│   ├── tools/                   # RAG + web search tools
+│   ├── evaluate_rag/            # RAGAS evaluation
+│   │   ├── evaluate.py
+│   │   ├── golden_dataset/      # Test questions
+│   │   └── results/             # Evaluation results
+│   ├── config/                  # Dynamic config
+│   │   └── retrieval_config.json
+│   └── data/                    # PDF manuals
+├── frontend/                     # Next.js frontend
+│   ├── app/
+│   │   ├── page.tsx            # Landing page
+│   │   └── chat/
+│   │       └── page.tsx        # Chat interface
+│   └── package.json
+├── requirements.txt             # Python dependencies
+├── restart-servers.sh           # Convenience script
+└── README.md                    # You are here!
+```
+
+## 🧪 Example Questions
+
+Try these with the GE Fridge manual:
+
+- "How do I change the water filter?"
+- "What's the filter capacity?"
+- "How do I prevent water leakage?"
+- "What are the installation requirements?"
+- "How often should I replace the filter?"
+
+
+## 📚 Learn More
+
+- [LangChain Documentation](https://python.langchain.com/)
+- [LangGraph Documentation](https://langchain-ai.github.io/langgraph/)
+- [RAGAS Documentation](https://docs.ragas.io/)
+- [FastAPI Documentation](https://fastapi.tiangolo.com/)
+- [Next.js Documentation](https://nextjs.org/docs)
+
+## 🎉 Acknowledgments
+
+Built with ❤️ at [AI Makerspace](https://github.com/AI-Maker-Space)
+
+## 📜 License
+
+This project is open source and available under the MIT License.
+
+---
+
+**Made with 🔧 by AI Engineers, for Homeowners**
+
+Questions? Issues? Open a GitHub issue or reach out to the AI Makerspace community!
