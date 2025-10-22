@@ -29,24 +29,40 @@ HandyAssist is an intelligent RAG (Retrieval Augmented Generation) agent that he
 
 ### Installation
 
-4. **Configure API keys** ⚠️ **IMPORTANT - Security First!**
+4. **Configure API Keys** ⚠️ **REQUIRED - System Won't Work Without This!**
    
+   **Step 1: Copy the template**
    ```bash
    cd api
    cp .env.example .env
    ```
    
-   Then edit `api/.env` and add your actual API keys:
+   **Step 2: Add YOUR real API keys to `api/.env`**
+   
+   Open `api/.env` in your text editor and **replace the placeholders** with your actual keys:
+   
    ```bash
+   # BEFORE (placeholder values - won't work!)
    OPENAI_API_KEY=your_openai_key_here
    TAVILY_API_KEY=your_tavily_key_here
    COHERE_API_KEY=your_cohere_key_here
+   
+   # AFTER (your real keys - will work!)
+   OPENAI_API_KEY=sk-proj-abc123...  # Your actual OpenAI key
+   TAVILY_API_KEY=tvly-dev-xyz789... # Your actual Tavily key
+   COHERE_API_KEY=f7W084Lh...        # Your actual Cohere key
    ```
+   
+   **Where to Get API Keys:**
+   - OpenAI: https://platform.openai.com/api-keys
+   - Tavily: https://tavily.com (sign up for free)
+   - Cohere: https://dashboard.cohere.ai/api-keys
    
    **Security Notes**:
    - ✅ `.env` is already in `.gitignore` - it will **never** be committed to Git
-   - ✅ For production deployments, set these as environment variables in your hosting platform
+   - ✅ For production, set these as environment variables in your hosting platform
    - ❌ **Never** hardcode API keys in source files or commit them to Git
+   - 💡 The system reads from `.env` automatically on startup
 
 5. **Add your appliance manuals**
    
