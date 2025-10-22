@@ -515,7 +515,7 @@ re_index_manuals(data_directory)
 
 ## 🔄 Evolution: Changes & Improvements in Second Half
 
-After initial development and testing, we made several critical improvements based on evaluation results and user experience considerations:
+After initial development and testing, made several critical improvements based on evaluation results and user experience considerations:
 
 ### **1. Switched from Fixed to Semantic Chunking**
 
@@ -543,7 +543,6 @@ After initial development and testing, we made several critical improvements bas
 
 **Problem Identified**:
 - Context precision plateaued at 0.802
-- Sometimes retrieved semantically similar but contextually wrong chunks
 - User questions about specific models got generic answers
 
 **Improvement**: Added Cohere Rerank (rerank-english-v3.0)
@@ -587,32 +586,6 @@ After initial development and testing, we made several critical improvements bas
 - **Impact**: Can manually override if needed
 - **Benefit**: Data-driven, not developer-driven
 
-**Implementation**:
-```python
-config = json.load(open("config/retrieval_config.json"))
-if "Semantic" in config["best_retriever"]:
-    chunking_strategy = "semantic"
-if "Cohere Rerank" in config["best_retriever"]:
-    use_rerank = True
-```
-
-### **5. Enhanced Agent with Context Awareness**
-
-**Initial Approach**: Agent always asked for appliance model
-- Followed standard pattern
-- Simple logic
-- But annoying for users
-
-**Problem Identified**:
-- User asks about GE Fridge filter
-- Agent: "What's your appliance model?"
-- User: "I just said GE Fridge!"
-- Poor UX
-
-**Improvement**: Context-aware system prompt
-- **Impact**: Agent checks `retrieve_information` FIRST
-- **Impact**: Only asks for model if manual not found
-- **UX**: Feels intelligent, not robotic
 
 **New Workflow**:
 ```
@@ -621,7 +594,7 @@ Step 2: If found → answer immediately
 Step 3: If not found → THEN ask for model
 ```
 
-### **6. Implemented Persona-Driven Test Generation**
+### **5. Implemented Persona-Driven Test Generation**
 
 **Initial Approach**: Generic RAGAS test questions
 - Standard SDG
@@ -640,7 +613,6 @@ Step 3: If not found → THEN ask for model
 - **Speed**: 5 questions in ~2 minutes vs 10+ minutes
 
 **Persona Definition**:
-```python
 homeowner_persona = """
 - Not a technical expert
 - Wants quick, practical answers
@@ -648,32 +620,8 @@ homeowner_persona = """
 - Uses everyday language
 - Concerned about safety and cost
 """
-```
 
-### **7. Expanded Evaluation Metrics**
-
-**Initial Approach**: Basic RAG metrics (precision, recall, faithfulness)
-- Industry standard
-- Good baseline
-- But incomplete picture
-
-**Problem Identified**:
-- Didn't measure answer quality beyond accuracy
-- Missed coherence and conciseness
-- No way to detect verbose but correct answers
-
-**Improvement**: Added 7 comprehensive metrics
-1. **context_precision**: 1.0 ✅
-2. **context_recall**: 1.0 ✅
-3. **faithfulness**: 0.879
-4. **answer_relevancy**: 0.969
-5. **answer_correctness**: 0.929
-6. **coherence**: 1.0 ✅
-7. **conciseness**: 0.0 ⚠️ (improvement opportunity identified!)
-
-**Learning**: Comprehensive evaluation reveals blind spots
-
-### **8. Optimized for English-Only Content**
+### **6. Optimized for English-Only Content**
 
 **Initial Approach**: Process all PDF pages
 - No filtering
@@ -700,7 +648,7 @@ for doc in docs:
         filtered_docs.append(doc)
 ```
 
-### **9. Added Tavily Fallback for Missing Manuals**
+### **7. Added Tavily Fallback for Missing Manuals**
 
 **Initial Approach**: Only RAG retrieval
 - Simple architecture
@@ -734,7 +682,7 @@ ELSE:
   - Still helpful!
 ```
 
-### **10. Comprehensive Evaluation Suite**
+### **8. Comprehensive Evaluation Suite**
 
 **Approach**: Use SDG
 
@@ -773,12 +721,8 @@ ELSE:
 - **Solution**: Pin to specific version (0.2.10) in requirements.txt
 - **Learning**: Always pin ML framework versions
 
-### **2. Semantic Chunking Needs Embeddings**
-- **Issue**: SemanticChunker requires embedding model for similarity calculation
-- **Solution**: Pass `OpenAIEmbeddings` instance to chunker
-- **Learning**: Understand dependencies between components
 
-### **3. Stratified Sampling Speeds Up SDG**
+### **2. Stratified Sampling Speeds Up SDG**
 - **Issue**: Generating questions from 120 pages took 10+ minutes
 - **Solution**: Sample 80 representative pages instead
 - **Learning**: Representative sampling is better than exhaustive processing
